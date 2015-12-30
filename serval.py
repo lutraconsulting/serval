@@ -64,7 +64,6 @@ class Serval:
         # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u'&Serval')
-        # TODO: We are going to let the user set this up in a future iteration
         self.toolbar = self.iface.addToolBar(u'Serval')
         self.toolbar.setObjectName(u'Serval')
 

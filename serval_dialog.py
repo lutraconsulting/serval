@@ -48,23 +48,34 @@ class ServalDialog(QDialog, FORM_CLASS):
         self.setupUi(self)
         self.tableWidget = CustomTable(self)
         self.data = my_array
-        self.numRows = 10
-        self.numCols = 20
+        self.numRows = 100
+        self.numCols = 100
         self.tableWidget.setRowCount(self.numRows)
         self.tableWidget.setColumnCount(self.numCols)
         self.tableWidget.addData(self.data)
-        # self.tableWidget.setHorizontalHeaderLabels([QString("River"),QString("km"),QString("Working WSEL"), QString("Ref WSEL"), QString("Ref-Working"), QString("Correction")])
-        # self.tableWidget.setHorizontalHeaderLabels(["River","km","Working WSEL", "Ref WSEL", "Ref-Working", "Correction"])
         self.tableWidget.setCurrentCell(0, 0)#needed so selectedRanges does not fail initially
         self.verticalLayout.addWidget(self.tableWidget)
+        self.rasterLoaded = False
 
         QObject.connect(self.tableWidget,SIGNAL("currentCellChanged(int,int,int,int)"),self.curTableCellChanged)
+        self.tableWidget.itemChanged.connect(self.cellValueChanged)
         self.loadBtn.released.connect(self.loadRaster)
 
     def curTableCellChanged(self,cRow,cCol,pRow,pCol):
+        print "Current cell is row: {0} and column {1}".format(cRow, cCol)
         if self.tableWidget.item(cRow,1):
             curX = float(self.tableWidget.item(cRow,1).text())
             # self.curKm.setValue(curX)
+        else:
+            pass
+
+    def cellValueChanged(self, item):
+        if self.rasterLoaded:
+            row = item.row()
+            col = item.column()
+            print "Item changed at row: {0} and column {1}".format(row, col)
+            self.array[row][col] = float(item.text())
+            print "array({},{})={}".format(row,col, self.array[row][col])
         else:
             pass
 
@@ -79,6 +90,7 @@ class ServalDialog(QDialog, FORM_CLASS):
         self.band = self.raster.GetRasterBand(1)
         self.array = self.band.ReadAsArray()
         self.array_2_table(self.array)
+        self.rasterLoaded = True
 
     def array_2_table(self, array):
         cols_nr = array.shape[1]
