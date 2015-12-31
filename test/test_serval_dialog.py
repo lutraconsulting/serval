@@ -16,7 +16,7 @@ import unittest
 
 from PyQt4.QtGui import QDialogButtonBox, QDialog
 
-from serval_dialog import ServalDialog
+from serval_widget import ServalDialog
 
 from utilities import get_qgis_app
 QGIS_APP = get_qgis_app()

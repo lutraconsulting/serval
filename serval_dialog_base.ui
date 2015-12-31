@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>ServalDialogBase</class>
- <widget class="QDialog" name="ServalDialogBase">
+ <class>Serval</class>
+ <widget class="QWidget" name="Serval">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>797</width>
-    <height>586</height>
+    <width>659</width>
+    <height>42</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,10 +17,24 @@
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout">
      <item row="0" column="0">
-      <layout class="QVBoxLayout" name="verticalLayout"/>
-     </item>
-     <item row="1" column="0">
       <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>Raster</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="rastersCbo">
+         <property name="minimumSize">
+          <size>
+           <width>200</width>
+           <height>0</height>
+          </size>
+         </property>
+        </widget>
+       </item>
        <item>
         <spacer name="horizontalSpacer">
          <property name="orientation">
@@ -33,13 +47,6 @@
           </size>
          </property>
         </spacer>
-       </item>
-       <item>
-        <widget class="QToolButton" name="loadBtn">
-         <property name="text">
-          <string>Load Raster</string>
-         </property>
-        </widget>
        </item>
       </layout>
      </item>
