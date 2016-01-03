@@ -21,83 +21,95 @@
  ***************************************************************************/
 """
 
-import os
-from os.path import dirname
-from . table import CustomTable
-from osgeo import gdal
-from osgeo.gdalconst import *
-
-# from PyQt4 import uic
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from qgis.core import *
-from qgis.utils import *
+from qgis.gui import QgsMessageBar
 
-from serval_dialog_base import Ui_Serval
+from _serval_dialog_base import Ui_Serval
+import numpy as np
+from osgeo import gdal
+from osgeo.gdalconst import *
+
+def is_number(s):
+    try:
+        if np.isnan(float(s)):
+            raise ValueError
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 class ServalWidget(QWidget, Ui_Serval):
     def __init__(self, iface):
+        self.iface = iface
         QWidget.__init__(self)
         self.setupUi(self)
-        self.iface=iface
         self.mapRegistry = QgsMapLayerRegistry.instance()
+        self.refreshRastersBtn.clicked.connect(self.populateRastersCbo)
+        self.rastersCbo.currentIndexChanged.connect(self.layerCboChanged)
+        self.changeCellValueBtn.released.connect(self.changeCellValue)
+        self.valueEdit.returnPressed.connect(self.changeCellValue)
 
-
-    def toolPressed(self, position):
-        print(position)
+    def pointClicked(self, point, button):
+        if self.raster == None:
+            self.iface.messageBar().pushMessage("Warning", "Choose a raster to set a value", level=QgsMessageBar.INFO)
+            return
         mapCanvasSrs = self.iface.mapCanvas().mapRenderer().destinationCrs()
-        pos = position
-
-        # if given no position, get dummy values
-        if position is None:
+        if point is None:
             pos = QgsPoint(0,0)
-        # transform points if needed
         elif not mapCanvasSrs == self.raster.crs() and self.iface.mapCanvas().hasCrsTransformEnabled():
             srsTransform = QgsCoordinateTransform(mapCanvasSrs, self.raster.crs())
             try:
-                pos = srsTransform.transform(position)
+                pos = srsTransform.transform(point)
             except QgsCsException, err:
                 # ignore transformation errors
                 pass
+        self.gdal_raster = gdal.Open(self.raster.source(), GA_Update)
+        gt = self.gdal_raster.GetGeoTransform()
+        band = self.gdal_raster.GetRasterBand(1)
 
-        ident = None
-        if position is not None:
-            print position
+        self.px = int((pos.x() - gt[0]) / gt[1]) #x pixel
+        self.py = int((pos.y() - gt[3]) / gt[5]) #y pixel
+        array = band.ReadAsArray(self.px, self.py, 1, 1)
+        value = array[0][0]
+        self.valarr = np.empty_like (array)
+        self.valarr[:] = array
+        if value:
+            self.valueEdit.setText("{}".format(value))
+            self.valueEdit.setFocus()
+            self.valueEdit.selectAll()
 
-
-            # # first test if point is within map layer extent
-            # # maintain same behaviour as in 1.8 and print out of extent
-            # if not self.raster.dataProvider().extent().contains( pos ):
-            #     ident = dict()
-            #     for iband in range(1,self.raster.bandCount()+1):
-            #         ident[iband] = str(self.tr('out of extent'))
-            # # we can only use context if layer is not projected
-            # elif canvas.hasCrsTransformEnabled() and self.raster.dataProvider().crs() != canvas.mapRenderer().destinationCrs():
-            #     ident = layer.dataProvider().identify(pos, QgsRaster.IdentifyFormatValue ).results()
-            # else:
-            #     extent = canvas.extent()
-            #     width = round(extent.width() / canvas.mapUnitsPerPixel());
-            #     height = round(extent.height() / canvas.mapUnitsPerPixel());
-            #
-            #     extent = canvas.mapRenderer().mapToLayerCoordinates( self.raster, extent );
-            #
-            #     ident = self.raster.dataProvider().identify(pos, QgsRaster.IdentifyFormatValue, canvas.extent(), width, height ).results()
-
-
-
+    def changeCellValue(self):
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        value = self.valueEdit.text()
+        print value
+        if is_number(value):
+            self.valarr[0][0] = float(self.valueEdit.text())
+            self.gdal_raster.GetRasterBand(1).WriteArray(self.valarr, self.px, self.py)
+            self.gdal_raster = None
+            del self.gdal_raster
+            del self.valarr
+            del self.px, self.py
+            self.raster.setCacheImage(None)
+            self.raster.triggerRepaint()
+            self.layerCboChanged()
+            QApplication.restoreOverrideCursor()
 
     def populateRastersCbo(self):
         self.rastersCbo.clear()
         for layerId, layer in sorted(self.mapRegistry.mapLayers().iteritems()):
             if layer!=None and layer.isValid() and \
-                    layer.type()==QgsMapLayer.RasterLayer and \
+                    layer.type() == QgsMapLayer.RasterLayer and \
                     layer.dataProvider() and \
-                    (layer.dataProvider().capabilities() & QgsRasterDataProvider.IdentifyValue):
+                    (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create):
                   self.rastersCbo.addItem(layer.name(), layerId)
 
     def layerCboChanged(self):
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         curInd = self.rastersCbo.currentIndex()
         lid = self.rastersCbo.itemData(curInd)
-        cboLayer = self.rgis.mapRegistry.mapLayer(lid)
+        cboLayer = self.mapRegistry.mapLayer(lid)
         if cboLayer:
             self.raster = cboLayer
+        QApplication.restoreOverrideCursor()

@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file 'serval_dialog_base.ui'
 #
-# Created: Sun Jan 03 17:38:39 2016
+# Created: Sat Jan 02 16:39:00 2016
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt4 import QtCore, QtGui
+import resources
+
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -97,5 +99,3 @@ class Ui_Serval(object):
         self.changeCellValueBtn.setToolTip(_translate("Serval", "Save new cell raster value to disk", None))
         self.changeCellValueBtn.setWhatsThis(_translate("Serval", "Save the new value of the current raster to disk", None))
         self.changeCellValueBtn.setText(_translate("Serval", "...", None))
-
-import resources_rc

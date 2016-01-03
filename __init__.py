@@ -25,11 +25,5 @@
 
 # noinspection PyPep8Naming
 def classFactory(iface):  # pylint: disable=invalid-name
-    """Load Serval class from file Serval.
-
-    :param iface: A QGIS interface instance.
-    :type iface: QgsInterface
-    """
-    #
-    from .serval import Serval
+    from serval import Serval
     return Serval(iface)
