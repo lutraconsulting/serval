@@ -65,7 +65,7 @@ class ServalWidget(QWidget, Ui_Serval):
             except QgsCsException, err:
                 # ignore transformation errors
                 pass
-        self.gdal_raster = gdal.Open(self.raster.source(), GA_Update)
+
         gt = self.gdal_raster.GetGeoTransform()
         band = self.gdal_raster.GetRasterBand(1)
 
@@ -88,9 +88,6 @@ class ServalWidget(QWidget, Ui_Serval):
             self.valarr[0][0] = float(self.valueEdit.text())
             self.gdal_raster.GetRasterBand(1).WriteArray(self.valarr, self.px, self.py)
             self.gdal_raster = None
-            del self.gdal_raster
-            del self.valarr
-            del self.px, self.py
             self.raster.setCacheImage(None)
             self.raster.triggerRepaint()
             self.layerCboChanged()
@@ -112,4 +109,5 @@ class ServalWidget(QWidget, Ui_Serval):
         cboLayer = self.mapRegistry.mapLayer(lid)
         if cboLayer:
             self.raster = cboLayer
+            self.gdal_raster = gdal.Open(self.raster.source(), GA_Update)
         QApplication.restoreOverrideCursor()

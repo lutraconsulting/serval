@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'serval_dialog_base.ui'
 #
-# Created: Sun Jan 03 17:38:39 2016
+# Created: Sun Jan 03 21:46:57 2016
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -91,9 +91,10 @@ class Ui_Serval(object):
         self.refreshRastersBtn.setToolTip(_translate("Serval", "Refresh Rasters List", None))
         self.refreshRastersBtn.setWhatsThis(_translate("Serval", "Use after loading a new raster into canvas", None))
         self.refreshRastersBtn.setText(_translate("Serval", "Refresh Rasters List", None))
+        self.rastersCbo.setToolTip(_translate("Serval", "Editable Rasters List", None))
         self.label_2.setText(_translate("Serval", "Value", None))
         self.valueEdit.setToolTip(_translate("Serval", "Enter a new cell value and press Enter", None))
-        self.valueEdit.setWhatsThis(_translate("Serval", "Enter a new cell value and press Enter. It is imediately written to disk.", None))
+        self.valueEdit.setWhatsThis(_translate("Serval", "Enter a new cell value and press Enter. It is immediately written to disk.", None))
         self.changeCellValueBtn.setToolTip(_translate("Serval", "Save new cell raster value to disk", None))
         self.changeCellValueBtn.setWhatsThis(_translate("Serval", "Save the new value of the current raster to disk", None))
         self.changeCellValueBtn.setText(_translate("Serval", "...", None))

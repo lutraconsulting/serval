@@ -85,6 +85,9 @@
            <height>0</height>
           </size>
          </property>
+         <property name="toolTip">
+          <string>Editable Rasters List</string>
+         </property>
         </widget>
        </item>
       </layout>
@@ -122,7 +125,7 @@
           <string>Enter a new cell value and press Enter</string>
          </property>
          <property name="whatsThis">
-          <string>Enter a new cell value and press Enter. It is imediately written to disk.</string>
+          <string>Enter a new cell value and press Enter. It is immediately written to disk.</string>
          </property>
         </widget>
        </item>

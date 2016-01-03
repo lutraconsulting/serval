@@ -51,6 +51,7 @@ class Serval:
         QgsMessageLog.logMessage("Gui loaded", 'Serval', QgsMessageLog.INFO)
 
     def unload(self):
+        self.widget.gdal_raster = None
         self.dockwidget.close()
         del self.widget
         self.iface.removeDockWidget(self.dockwidget)

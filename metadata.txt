@@ -4,7 +4,8 @@
 # embedding metadata in __init__.py will 
 # is no longer supported since version 2.0.
 
-# This file should be included when you package your plugin.# Mandatory items:
+# This file should be included when you package your plugin.
+# Mandatory items:
 
 [general]
 name=Serval
@@ -14,7 +15,7 @@ version=0.1
 author=Radosław Pasiok
 email=rpasiok@gmail.com
 
-about=Set raster cell values in a table.
+about=Set raster pixel values. Click a pixel, set a new value and hit Enter. That's it. Changes are immediately written to disk.
 
 tracker=http://github.com/erpas/serval/issues
 repository=http://github.com/erpas/serval
@@ -26,11 +27,11 @@ repository=http://github.com/erpas/serval
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=raster, cell, value
+tags=raster, pixel, value
 
-homepage=
+homepage=https://github.com/erpas/serval/wiki
 category=Raster
-icon=icon.png
+icon=icons/icon.svg
 # experimental flag
 experimental=True
 
