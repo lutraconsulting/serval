@@ -27,11 +27,35 @@ from qgis.gui import QgsMapToolEmitPoint
 from serval_widget import ServalWidget
 import resources
 
+tool_cursor = [
+    "16 16 3 1",
+    "# c None",
+    "a c #000000",
+    ". c #ffffff",
+    "######.aa.######",
+    "######.aa.######",
+    "######.aa.######",
+    "######.aa.######",
+    "######.aa.######",
+    "################",
+    ".....######.....",
+    "aaaaa######aaaaa",
+    "aaaaa######aaaaa",
+    ".....######.....",
+    "################",
+    "######.aa.######",
+    "######.aa.######",
+    "######.aa.######",
+    "######.aa.######",
+    "######.aa.######",
+]
+
 class Serval:
     def __init__(self, iface):
         self.iface = iface
         self.canvas=self.iface.mapCanvas()
         self.pointTool = QgsMapToolEmitPoint(self.canvas)
+        self.pointTool.setCursor(QCursor(QPixmap(tool_cursor), 1, 1))
 
     def initGui(self):
         self.action=QAction(QIcon(":/plugins/icons/icon.svg"), "Serval", self.iface.mainWindow())
