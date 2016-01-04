@@ -55,6 +55,7 @@ class ServalWidget(QWidget, Ui_Serval):
         if self.raster == None:
             self.iface.messageBar().pushMessage("Warning", "Choose a raster to set a value", level=QgsMessageBar.INFO)
             return
+
         mapCanvasSrs = self.iface.mapCanvas().mapRenderer().destinationCrs()
         if point is None:
             pos = QgsPoint(0,0)
@@ -65,20 +66,25 @@ class ServalWidget(QWidget, Ui_Serval):
             except QgsCsException, err:
                 # ignore transformation errors
                 pass
+        else:
+            pos = QgsPoint(point.x(), point.y())
 
         gt = self.gdal_raster.GetGeoTransform()
         band = self.gdal_raster.GetRasterBand(1)
-
         self.px = int((pos.x() - gt[0]) / gt[1]) #x pixel
         self.py = int((pos.y() - gt[3]) / gt[5]) #y pixel
         array = band.ReadAsArray(self.px, self.py, 1, 1)
-        value = array[0][0]
-        self.valarr = np.empty_like (array)
-        self.valarr[:] = array
-        if value:
-            self.valueEdit.setText("{}".format(value))
-            self.valueEdit.setFocus()
-            self.valueEdit.selectAll()
+        if array == None:
+            self.valueEdit.setText("none")
+            return
+        else:
+            value = array[0][0]
+            self.valarr = np.empty_like (array)
+            self.valarr[:] = array
+            if value:
+                self.valueEdit.setText("{}".format(value))
+                self.valueEdit.setFocus()
+                self.valueEdit.selectAll()
 
     def changeCellValue(self):
         QApplication.setOverrideCursor(Qt.WaitCursor)
