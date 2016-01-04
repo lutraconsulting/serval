@@ -1,4 +1,4 @@
-# Serval wiki
+# Serval
 
 Serval is a QGIS plugin for setting raster pixel value. 
 

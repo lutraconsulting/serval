@@ -132,10 +132,10 @@
        <item>
         <widget class="QToolButton" name="changeCellValueBtn">
          <property name="toolTip">
-          <string>Save new cell raster value to disk</string>
+          <string>Save the new cell raster value to disk</string>
          </property>
          <property name="whatsThis">
-          <string>Save the new value of the current raster to disk</string>
+          <string>Save the new value to disk</string>
          </property>
          <property name="accessibleDescription">
           <string/>
@@ -146,6 +146,29 @@
          <property name="icon">
           <iconset resource="resources.qrc">
            <normaloff>:/plugins/icons/setValue.svg</normaloff>:/plugins/icons/setValue.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>24</width>
+           <height>24</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="toolButton">
+         <property name="toolTip">
+          <string>Open plugin's webpage (GitHub wiki)</string>
+         </property>
+         <property name="whatsThis">
+          <string>Open plugin's webpage.</string>
+         </property>
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset resource="resources.qrc">
+           <normaloff>:/plugins/icons/helpContents.svg</normaloff>:/plugins/icons/helpContents.svg</iconset>
          </property>
          <property name="iconSize">
           <size>

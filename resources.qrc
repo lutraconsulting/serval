@@ -2,6 +2,7 @@
   <qresource prefix="plugins">
     <file>icons/setValue.svg</file>
     <file>icons/icon.svg</file>
+    <file>icons/helpContents.svg</file>
     <file>icons/refreshRasters.svg</file>
     <file>icons/saveRaster.svg</file>
   </qresource>

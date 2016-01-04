@@ -53,9 +53,9 @@ class ServalWidget(QWidget, Ui_Serval):
 
     def pointClicked(self, point, button):
         if self.raster == None:
-            self.iface.messageBar().pushMessage("Warning", "Choose a raster to set a value", level=QgsMessageBar.INFO)
+            self.iface.messageBar().pushMessage("Serval", "Choose a raster to set a value", level=QgsMessageBar.WARNING)
             return
-
+        gdal_raster = gdal.Open(self.raster.source(), GA_ReadOnly)
         mapCanvasSrs = self.iface.mapCanvas().mapRenderer().destinationCrs()
         if point is None:
             pos = QgsPoint(0,0)
@@ -69,34 +69,41 @@ class ServalWidget(QWidget, Ui_Serval):
         else:
             pos = QgsPoint(point.x(), point.y())
 
-        gt = self.gdal_raster.GetGeoTransform()
-        band = self.gdal_raster.GetRasterBand(1)
+        gt = gdal_raster.GetGeoTransform()
+        band = gdal_raster.GetRasterBand(1)
         self.px = int((pos.x() - gt[0]) / gt[1]) #x pixel
         self.py = int((pos.y() - gt[3]) / gt[5]) #y pixel
-        array = band.ReadAsArray(self.px, self.py, 1, 1)
-        if array == None:
-            self.valueEdit.setText("none")
-            return
+        self.array = band.ReadAsArray(self.px, self.py, 1, 1)
+        if self.array == None:
+            self.valueEdit.setText("NULL")
         else:
-            value = array[0][0]
-            self.valarr = np.empty_like (array)
-            self.valarr[:] = array
+            value = self.array[0][0]
             if value:
                 self.valueEdit.setText("{}".format(value))
                 self.valueEdit.setFocus()
                 self.valueEdit.selectAll()
+        gt = None
+        band = None
+        array = None
+        gdal_raster = None
+        value = None
 
     def changeCellValue(self):
         QApplication.setOverrideCursor(Qt.WaitCursor)
+        gdal_raster = gdal.Open(self.raster.source(), GA_Update)
+        band = gdal_raster.GetRasterBand(1)
         value = self.valueEdit.text()
         print value
         if is_number(value):
-            self.valarr[0][0] = float(self.valueEdit.text())
-            self.gdal_raster.GetRasterBand(1).WriteArray(self.valarr, self.px, self.py)
-            self.gdal_raster = None
+            self.array[0][0] = float(self.valueEdit.text())
+            band.WriteArray(self.array, self.px, self.py)
+            self.array = None
+            band = None
+            gdal_raster = None
             self.raster.setCacheImage(None)
             self.raster.triggerRepaint()
             self.layerCboChanged()
+
             QApplication.restoreOverrideCursor()
 
     def populateRastersCbo(self):
@@ -109,11 +116,8 @@ class ServalWidget(QWidget, Ui_Serval):
                   self.rastersCbo.addItem(layer.name(), layerId)
 
     def layerCboChanged(self):
-        QApplication.setOverrideCursor(Qt.WaitCursor)
         curInd = self.rastersCbo.currentIndex()
         lid = self.rastersCbo.itemData(curInd)
         cboLayer = self.mapRegistry.mapLayer(lid)
         if cboLayer:
             self.raster = cboLayer
-            self.gdal_raster = gdal.Open(self.raster.source(), GA_Update)
-        QApplication.restoreOverrideCursor()

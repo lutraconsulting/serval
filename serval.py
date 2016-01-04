@@ -28,7 +28,7 @@ from serval_widget import ServalWidget
 import resources
 
 tool_cursor = [
-    "16 16 3 1",
+    "16 16 7 7",
     "# c None",
     "a c #000000",
     ". c #ffffff",
@@ -75,9 +75,10 @@ class Serval:
         QgsMessageLog.logMessage("Gui loaded", 'Serval', QgsMessageLog.INFO)
 
     def unload(self):
-        self.widget.gdal_raster = None
+        self.widget.array = None
+        self.widget.px = None
+        self.widget.py = None
         self.dockwidget.close()
-        del self.widget
         self.iface.removeDockWidget(self.dockwidget)
         self.iface.removeToolBarIcon(self.action)
 
