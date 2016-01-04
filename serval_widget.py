@@ -49,6 +49,7 @@ class ServalWidget(QWidget, Ui_Serval):
         self.refreshRastersBtn.clicked.connect(self.populateRastersCbo)
         self.rastersCbo.currentIndexChanged.connect(self.layerCboChanged)
         self.changeCellValueBtn.released.connect(self.changeCellValue)
+        self.webpageBtn.released.connect(self.showWebsite)
         self.valueEdit.returnPressed.connect(self.changeCellValue)
 
     def pointClicked(self, point, button):
@@ -121,3 +122,6 @@ class ServalWidget(QWidget, Ui_Serval):
         cboLayer = self.mapRegistry.mapLayer(lid)
         if cboLayer:
             self.raster = cboLayer
+
+    def showWebsite(self):
+        QDesktopServices.openUrl(QUrl('https://github.com/erpas/serval/wiki'))

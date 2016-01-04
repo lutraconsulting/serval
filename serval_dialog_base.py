@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'serval_dialog_base.ui'
 #
-# Created: Mon Jan 04 08:14:07 2016
+# Created: Mon Jan 04 17:16:36 2016
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -34,6 +34,9 @@ class Ui_Serval(object):
         Serval.setSizePolicy(sizePolicy)
         Serval.setMinimumSize(QtCore.QSize(200, 80))
         Serval.setMaximumSize(QtCore.QSize(400, 100))
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/plugins/icons/serval_icon.svg")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        Serval.setWindowIcon(icon)
         self.gridLayout_2 = QtGui.QGridLayout(Serval)
         self.gridLayout_2.setMargin(3)
         self.gridLayout_2.setSpacing(3)
@@ -46,9 +49,9 @@ class Ui_Serval(object):
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
         self.refreshRastersBtn = QtGui.QToolButton(Serval)
         self.refreshRastersBtn.setAccessibleDescription(_fromUtf8(""))
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/plugins/icons/refreshRasters.svg")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.refreshRastersBtn.setIcon(icon)
+        icon1 = QtGui.QIcon()
+        icon1.addPixmap(QtGui.QPixmap(_fromUtf8(":/plugins/icons/refreshRasters.svg")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.refreshRastersBtn.setIcon(icon1)
         self.refreshRastersBtn.setIconSize(QtCore.QSize(24, 24))
         self.refreshRastersBtn.setObjectName(_fromUtf8("refreshRastersBtn"))
         self.horizontalLayout.addWidget(self.refreshRastersBtn)
@@ -74,12 +77,19 @@ class Ui_Serval(object):
         self.horizontalLayout_2.addWidget(self.valueEdit)
         self.changeCellValueBtn = QtGui.QToolButton(Serval)
         self.changeCellValueBtn.setAccessibleDescription(_fromUtf8(""))
-        icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap(_fromUtf8(":/plugins/icons/setValue.svg")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.changeCellValueBtn.setIcon(icon1)
+        icon2 = QtGui.QIcon()
+        icon2.addPixmap(QtGui.QPixmap(_fromUtf8(":/plugins/icons/setValue.svg")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.changeCellValueBtn.setIcon(icon2)
         self.changeCellValueBtn.setIconSize(QtCore.QSize(24, 24))
         self.changeCellValueBtn.setObjectName(_fromUtf8("changeCellValueBtn"))
         self.horizontalLayout_2.addWidget(self.changeCellValueBtn)
+        self.webpageBtn = QtGui.QToolButton(Serval)
+        icon3 = QtGui.QIcon()
+        icon3.addPixmap(QtGui.QPixmap(_fromUtf8(":/plugins/icons/helpContents.svg")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.webpageBtn.setIcon(icon3)
+        self.webpageBtn.setIconSize(QtCore.QSize(24, 24))
+        self.webpageBtn.setObjectName(_fromUtf8("webpageBtn"))
+        self.horizontalLayout_2.addWidget(self.webpageBtn)
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
         self.gridLayout_2.addLayout(self.verticalLayout_2, 1, 0, 1, 1)
 
@@ -95,8 +105,11 @@ class Ui_Serval(object):
         self.label_2.setText(_translate("Serval", "Value", None))
         self.valueEdit.setToolTip(_translate("Serval", "Enter a new cell value and press Enter", None))
         self.valueEdit.setWhatsThis(_translate("Serval", "Enter a new cell value and press Enter. It is immediately written to disk.", None))
-        self.changeCellValueBtn.setToolTip(_translate("Serval", "Save new cell raster value to disk", None))
-        self.changeCellValueBtn.setWhatsThis(_translate("Serval", "Save the new value of the current raster to disk", None))
+        self.changeCellValueBtn.setToolTip(_translate("Serval", "Save the new cell raster value to disk", None))
+        self.changeCellValueBtn.setWhatsThis(_translate("Serval", "Save the new value to disk", None))
         self.changeCellValueBtn.setText(_translate("Serval", "...", None))
+        self.webpageBtn.setToolTip(_translate("Serval", "Open plugin\'s webpage (GitHub wiki)", None))
+        self.webpageBtn.setWhatsThis(_translate("Serval", "Open plugin\'s webpage.", None))
+        self.webpageBtn.setText(_translate("Serval", "...", None))
 
 import resources_rc

@@ -28,26 +28,26 @@ from serval_widget import ServalWidget
 import resources
 
 tool_cursor = [
-    "16 16 7 7",
+    "16 16 3 1",
     "# c None",
     "a c #000000",
     ". c #ffffff",
-    "######.aa.######",
-    "######.aa.######",
-    "######.aa.######",
-    "######.aa.######",
-    "######.aa.######",
+    "######.a.#######",
+    "######.a.#######",
+    "######.a.#######",
+    "######.a.#######",
+    "######.a.#######",
     "################",
-    ".....######.....",
-    "aaaaa######aaaaa",
-    "aaaaa######aaaaa",
-    ".....######.....",
+    ".....#####.....#",
+    "aaaaa#####aaaaa#",
+    ".....#####.....#",
     "################",
-    "######.aa.######",
-    "######.aa.######",
-    "######.aa.######",
-    "######.aa.######",
-    "######.aa.######",
+    "######.a.#######",
+    "######.a.#######",
+    "######.a.#######",
+    "######.a.#######",
+    "######.a.#######",
+    "################"
 ]
 
 class Serval:
@@ -55,10 +55,10 @@ class Serval:
         self.iface = iface
         self.canvas=self.iface.mapCanvas()
         self.pointTool = QgsMapToolEmitPoint(self.canvas)
-        self.pointTool.setCursor(QCursor(Qt.ArrowCursor))
+        self.pointTool.setCursor(QCursor(QPixmap(tool_cursor), 8, 7))
 
     def initGui(self):
-        self.action=QAction(QIcon(":/plugins/icons/icon.svg"), "Serval", self.iface.mainWindow())
+        self.action=QAction(QIcon(":/plugins/icons/serval_icon.svg"), "Serval", self.iface.mainWindow())
         self.iface.addToolBarIcon(self.action)
         QObject.connect(self.action, SIGNAL("triggered()"), self.activateTool)
 

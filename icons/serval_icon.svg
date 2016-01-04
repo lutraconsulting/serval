@@ -41,12 +41,12 @@
      inkscape:window-height="861"
      id="namedview120"
      showgrid="false"
-     inkscape:zoom="5.5858477"
-     inkscape:cx="-2.1633059"
-     inkscape:cy="11.509186"
+     inkscape:zoom="2.7929239"
+     inkscape:cx="0.22398496"
+     inkscape:cy="15.504839"
      inkscape:window-x="78"
      inkscape:window-y="12"
-     inkscape:window-maximized="0"
+     inkscape:window-maximized="1"
      inkscape:current-layer="svg2" />
   <title
      id="title4">Mouse Pointer</title>
@@ -378,9 +378,9 @@
     </linearGradient>
   </defs>
   <g
-     style="display:inline;opacity:0.72299996"
+     style="display:inline;opacity:1"
      id="g5456"
-     transform="matrix(1.9999999,0,0,1.9999999,0.35804771,-15.820975)">
+     transform="matrix(2.1973852,0,0,2.1973852,0.23145875,-17.273468)">
     <rect
        y="8"
        x="6.499999"
@@ -448,8 +448,8 @@
        style="fill:none;stroke:none" />
   </g>
   <path
-     style="color:#000000;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:1;isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:#000000;solid-opacity:1;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.40000001;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate"
-     d="m 18.594587,9.5718336 -1.112677,0.8729064 -0.158946,0.793548 -0.238431,2.063234 -0.07947,3.809047 -0.158946,3.729686 -0.238433,0.158699 -1.430579,1.190329 -1.430579,1.507747 -1.192155,1.507745 -0.556335,1.5871 -0.397386,1.349041 -0.953722,1.507745 -1.0331928,1.507743 -1.192154,1.110975 -0.238431,0.634839 0,0.952262 1.192154,1.507744 1.5895328,1.825168 0.953723,0.555485 1.669011,0.158717 1.986921,-0.63484 1.271625,-0.476133 1.827964,0 1.430581,-0.238061 0.874244,-0.55549 1.907447,-0.158699 1.3511,0 1.033199,0.238061 1.033201,1.110973 1.589533,2.856786 4.107161,7.447449 15.368219,-0.233844 0.132042,-17.393984 c 0,0 -7.595734,-2.523116 -9.116498,-3.548058 l -2.622734,-1.190331 -2.781689,-1.587099 -1.827966,-0.952261 -1.589534,-0.872906 -1.11267,-1.110974 -0.715296,-1.349034 -0.07947,-0.793551 0.07947,-1.507745 L 27.416517,15.99959 26.542274,15.20604 23.442677,13.063436 22.012096,12.19053 20.899419,10.524076 19.945704,9.4924596 Z"
+     style="color:#000000;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:1;isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:#000000;solid-opacity:1;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#ffffff;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate"
+     d="m 19.419279,10.164135 -1.112677,0.872906 -0.158946,0.793549 -0.238431,2.063234 -0.07947,3.809047 -0.158946,3.729686 -0.238433,0.158699 -1.430579,1.190329 -1.430579,1.507747 -1.192155,1.507745 -0.556335,1.5871 -0.397386,1.349041 -0.953722,1.507745 -1.033193,1.507743 -1.1921541,1.110975 -0.238431,0.634839 0,0.952262 1.1921541,1.507744 1.589533,1.825168 0.953723,0.555485 1.669011,0.158717 1.986921,-0.63484 1.271625,-0.476133 1.827964,0 1.430581,-0.238061 0.874244,-0.55549 1.907447,-0.158699 1.3511,0 1.033199,0.238061 1.033201,1.110973 1.589533,2.856786 3.917278,6.308148 14.228918,-0.04396 0.06875,-17.33069 c 0,0 -6.203255,-1.636993 -7.724019,-2.661935 l -2.622734,-1.190331 -2.781689,-1.587099 -1.827966,-0.952261 -1.589534,-0.872906 -1.11267,-1.110974 -0.715296,-1.349034 -0.07947,-0.793551 0.07947,-1.507745 -0.317904,-0.952263 -0.874243,-0.79355 -3.099597,-2.142604 -1.430581,-0.872906 -1.112677,-1.666455 -0.953715,-1.031616 z"
      id="path4147"
      inkscape:connector-curvature="0"
      sodipodi:nodetypes="cccccccccccccccccccccccccccccccccccccccccccccccccc" />
