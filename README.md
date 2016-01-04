@@ -4,7 +4,7 @@ Serval is a QGIS plugin for setting raster pixel value.
 
 ## How to use
 
-![Serval](http://rivergis.com/others/serval.png)
+![Serval](https://raw.githubusercontent.com/erpas/serval/master/help/source/img/serval_example.png)
 
 Any changes are immediately written to disk. Make a copy of your precious raster.
 
