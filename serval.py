@@ -55,7 +55,7 @@ class Serval:
         self.iface = iface
         self.canvas=self.iface.mapCanvas()
         self.pointTool = QgsMapToolEmitPoint(self.canvas)
-        self.pointTool.setCursor(QCursor(QPixmap(tool_cursor), 1, 1))
+        self.pointTool.setCursor(QCursor(Qt.ArrowCursor))
 
     def initGui(self):
         self.action=QAction(QIcon(":/plugins/icons/icon.svg"), "Serval", self.iface.mainWindow())
