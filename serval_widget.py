@@ -89,7 +89,6 @@ class ServalWidget(QWidget, Ui_Serval):
         band = None
         array = None
         gdal_raster = None
-        value = None
 
     def changeCellValue(self):
         QApplication.setOverrideCursor(Qt.WaitCursor)

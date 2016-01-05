@@ -15,6 +15,10 @@ Any changes are immediately written to disk. Make a copy of your precious raster
 
 That's it.
 
+## Known issues
+
+On Windows objects of GDAL Python API are not properly deleted on plugin unload when closing QGIS and that causes Python to crash.
+
 ## License
 
 Serval is a free/libre software and is licensed under the GNU General Public License.
