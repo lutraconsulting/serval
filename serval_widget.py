@@ -31,6 +31,8 @@ import numpy as np
 from osgeo import gdal
 from osgeo.gdalconst import *
 
+gdal.UseExceptions()
+
 def is_number(s):
     try:
         if np.isnan(float(s)):
@@ -75,12 +77,12 @@ class ServalWidget(QWidget, Ui_Serval):
         self.px = int((pos.x() - gt[0]) / gt[1]) #x pixel
         self.py = int((pos.y() - gt[3]) / gt[5]) #y pixel
         self.array = band.ReadAsArray(self.px, self.py, 1, 1)
-        if self.array == None:
+        if self.array is None:
             self.valueEdit.setText("NULL")
         else:
             value = self.array[0][0]
             if value:
-                self.valueEdit.setText("{}".format(value))
+                self.valueEdit.setText("{0:.4f}".format(value))
                 self.valueEdit.setFocus()
                 self.valueEdit.selectAll()
         gt = None
@@ -95,7 +97,7 @@ class ServalWidget(QWidget, Ui_Serval):
         band = gdal_raster.GetRasterBand(1)
         value = self.valueEdit.text()
         print value
-        if is_number(value):
+        if is_number(value) and not self.array is None:
             self.array[0][0] = float(self.valueEdit.text())
             band.WriteArray(self.array, self.px, self.py)
             self.array = None
@@ -104,8 +106,7 @@ class ServalWidget(QWidget, Ui_Serval):
             self.raster.setCacheImage(None)
             self.raster.triggerRepaint()
             self.layerCboChanged()
-
-            QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()
 
     def populateRastersCbo(self):
         self.rastersCbo.clear()
@@ -113,7 +114,9 @@ class ServalWidget(QWidget, Ui_Serval):
             if layer!=None and layer.isValid() and \
                     layer.type() == QgsMapLayer.RasterLayer and \
                     layer.dataProvider() and \
-                    (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create):
+                    (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create) and \
+                    layer.bandCount() <= 1 and\
+                    not layer.crs() is None:
                   self.rastersCbo.addItem(layer.name(), layerId)
 
     def layerCboChanged(self):

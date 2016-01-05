@@ -11,7 +11,7 @@
 name=Serval
 qgisMinimumVersion=2.8
 description=Map tool to set raster pixel value
-version=0.1
+version=0.2
 author=Radosław Pasiok
 email=rpasiok@gmail.com
 
@@ -24,14 +24,17 @@ repository=http://github.com/erpas/serval
 # Recommended items:
 
 # Uncomment the following line and add your changelog:
-changelog=0.1 Initial release.
+changelog=
+        0.2 bugfix release
+        0.1 Initial release.
+
 
 # Tags are comma separated with spaces allowed
 tags=raster, pixel, value
 
 homepage=https://github.com/erpas/serval/wiki
 category=Raster
-icon=icons/icon.svg
+icon=icons/serval_icon.svg
 # experimental flag
 experimental=True
 
