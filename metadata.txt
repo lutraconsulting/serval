@@ -10,7 +10,7 @@
 [general]
 name=Serval
 qgisMinimumVersion=2.8
-description=Map tool to set raster pixel value
+description=Map tool to set raster pixel value. Currently single banded rasters are supported.
 version=0.2
 author=Radosław Pasiok
 email=rpasiok@gmail.com
