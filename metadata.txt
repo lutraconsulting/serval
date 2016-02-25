@@ -10,12 +10,13 @@
 [general]
 name=Serval
 qgisMinimumVersion=2.8
-description=Map tool to set raster pixel value. Currently single banded rasters are supported.
-version=0.2
-author=Radosław Pasiok
+description=Map tool to set raster cell values.
+version=0.6
+author=Radoslaw Pasiok
 email=rpasiok@gmail.com
 
-about=Usage: Click on a pixel, set a new value and hit Enter. That's it. Changes are immediately written to disk.
+about=Usage: The tool has 2 modes: probing and drawing. In the probing mode cell values are read and can be changed manually in a spin box. In drawing mode, chosen pixel band values are written to disk. For 3 bands rasters, native QGIS color picker can be used to define bands values.
+Warning: All changes are immediately written to disk. Always work on a copy!
 
 tracker=http://github.com/erpas/serval/issues
 repository=http://github.com/erpas/serval
@@ -25,6 +26,11 @@ repository=http://github.com/erpas/serval
 
 # Uncomment the following line and add your changelog:
 changelog=
+        0.6 new fetures:
+                3 bands rasters supported
+                working modes (probing, drawing)
+                QGIS color picker
+        0.3 added locked mode
         0.2 bugfix release
         0.1 Initial release.
 

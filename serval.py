@@ -25,57 +25,42 @@ from PyQt4.QtGui import *
 from qgis.core import *
 from qgis.gui import QgsMapToolEmitPoint
 from serval_widget import ServalWidget
-import resources
-
-tool_cursor = [
-    "16 16 3 1",
-    "# c None",
-    "a c #000000",
-    ". c #ffffff",
-    "######.a.#######",
-    "######.a.#######",
-    "######.a.#######",
-    "######.a.#######",
-    "######.a.#######",
-    "################",
-    ".....#####.....#",
-    "aaaaa#####aaaaa#",
-    ".....#####.....#",
-    "################",
-    "######.a.#######",
-    "######.a.#######",
-    "######.a.#######",
-    "######.a.#######",
-    "######.a.#######",
-    "################"
-]
 
 class Serval:
     def __init__(self, iface):
         self.iface = iface
-        self.canvas=self.iface.mapCanvas()
-        self.pointTool = QgsMapToolEmitPoint(self.canvas)
-        self.pointTool.setCursor(QCursor(QPixmap(tool_cursor), 8, 7))
+        self.canvas = self.iface.mapCanvas()
+        self.probeTool = QgsMapToolEmitPoint(self.canvas)
+        self.probeTool.setCursor(QCursor(QPixmap(':plugins/icons/mIconColorPicker.svg'), hotX=2, hotY=22))
+        self.drawTool = QgsMapToolEmitPoint(self.canvas)
+        self.drawTool.setCursor(QCursor(QPixmap(':plugins/icons/mActionToggleEditing.svg'), hotX=2, hotY=22))
 
     def initGui(self):
-        self.action=QAction(QIcon(":/plugins/icons/serval_icon.svg"), "Serval", self.iface.mainWindow())
+        self.action=QAction(QIcon(":/plugins/icons/serval_icon.svg"), "Serval - set raster value tool", self.iface.mainWindow())
         self.iface.addToolBarIcon(self.action)
         QObject.connect(self.action, SIGNAL("triggered()"), self.activateTool)
 
-        self.widget = ServalWidget(self.iface)
+        self.widget = ServalWidget(self.iface, self)
         self.widget.raster = None
-        self.pointTool.canvasClicked.connect(self.widget.pointClicked)
+        self.probeTool.canvasClicked.connect(self.widget.pointClicked)
+        self.drawTool.canvasClicked.connect(self.widget.pointClicked)
 
         self.dockwidget=QDockWidget("Serval - Set Raster Value" , self.iface.mainWindow() )
         self.dockwidget.setObjectName("Serval")
         self.dockwidget.setWidget(self.widget)
         self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
 
-        self.widget.populateRastersCbo()
         QgsMessageLog.logMessage("Gui loaded", 'Serval', QgsMessageLog.INFO)
 
     def unload(self):
-        self.widget.array = None
+        # properly close raster data if they exist
+        try:
+            for key, value in self.bands.iteritems():
+                self.bands[key]['data'] = None
+            self.bands = None
+            self.gdal_raster = None
+        except AttributeError:
+            pass
         self.widget.px = None
         self.widget.py = None
         self.dockwidget.close()
@@ -83,5 +68,6 @@ class Serval:
         self.iface.removeToolBarIcon(self.action)
 
     def activateTool(self):
-        self.canvas.setMapTool(self.pointTool)
+        self.canvas.setMapTool(self.probeTool)
+        self.widget.setActiveRaster()
 
