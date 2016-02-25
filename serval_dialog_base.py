@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'serval_dialog_base.ui'
 #
-# Created: Thu Feb 25 22:33:56 2016
+# Created: Fri Feb 26 00:34:52 2016
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -91,15 +91,18 @@ class Ui_Serval(object):
     def retranslateUi(self, Serval):
         Serval.setWindowTitle(_translate("Serval", "Serval", None))
         self.curRasterLabel.setText(_translate("Serval", "R:", None))
-        self.mColorButton.setToolTip(_translate("Serval", "Color Button", None))
-        self.mColorButton.setStatusTip(_translate("Serval", "Color Button", None))
-        self.mColorButton.setWhatsThis(_translate("Serval", "Color Button", None))
+        self.mColorButton.setToolTip(_translate("Serval", "Color Picker", None))
+        self.mColorButton.setStatusTip(_translate("Serval", "Color Picker", None))
+        self.mColorButton.setWhatsThis(_translate("Serval", "Color Picker", None))
         self.mColorButton.setAccessibleName(_translate("Serval", "Color Button", None))
         self.mColorButton.setText(_translate("Serval", "Color picker", None))
+        self.probeBtn.setToolTip(_translate("Serval", "Probing mode", None))
+        self.probeBtn.setStatusTip(_translate("Serval", "Probing mode", None))
+        self.probeBtn.setWhatsThis(_translate("Serval", "Probing mode", None))
         self.probeBtn.setText(_translate("Serval", "...", None))
-        self.pencilBtn.setToolTip(_translate("Serval", "Turns on/off the Locked Mode", None))
-        self.pencilBtn.setStatusTip(_translate("Serval", "Turns on/off the Locked Mode", None))
-        self.pencilBtn.setWhatsThis(_translate("Serval", "Turns on/off the Locked Mode", None))
+        self.pencilBtn.setToolTip(_translate("Serval", "Drawing mode", None))
+        self.pencilBtn.setStatusTip(_translate("Serval", "Drawing mode", None))
+        self.pencilBtn.setWhatsThis(_translate("Serval", "Drawing mode", None))
         self.pencilBtn.setText(_translate("Serval", "...", None))
         self.webpageBtn.setToolTip(_translate("Serval", "Open plugin\'s webpage (GitHub wiki)", None))
         self.webpageBtn.setStatusTip(_translate("Serval", "Open plugin\'s webpage (GitHub wiki)", None))
