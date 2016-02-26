@@ -43,6 +43,7 @@ def is_number(s):
     except ValueError:
         return False
 
+
 class bandSpinBox(QgsDoubleSpinBox):
     def __init__(self, parent):
         QgsDoubleSpinBox.__init__(self, parent)
@@ -114,7 +115,7 @@ class ServalWidget(QWidget, Ui_Serval):
             self.iface.messageBar().pushMessage("Serval",
                                                 "Choose a raster to set a value",
                                                 level=QgsMessageBar.WARNING,
-                                                duration = 5)
+                                                duration = 3)
             return
         mapCanvasSrs = self.iface.mapCanvas().mapRenderer().destinationCrs()
         if point is None:
@@ -132,8 +133,23 @@ class ServalWidget(QWidget, Ui_Serval):
         else:
             pos = QgsPoint(point.x(), point.y())
 
-        self.px = int((pos.x() - self.gt[0]) / self.gt[1])
-        self.py = int((pos.y() - self.gt[3]) / self.gt[5])
+        if pos.x() >= self.rbounds[0] and pos.x() <= self.rbounds[2]:
+            self.px = int((pos.x() - self.gt[0]) / self.gt[1])
+        else:
+            self.iface.messageBar().pushMessage("Serval",
+                            "Out of x bounds",
+                            level=QgsMessageBar.INFO,
+                            duration = 2)
+            return
+
+        if  pos.y() >= self.rbounds[1] and pos.y() <= self.rbounds[3]:
+            self.py = int((pos.y() - self.gt[3]) / self.gt[5])
+        else:
+            self.iface.messageBar().pushMessage("Serval",
+                            "Out of y bounds",
+                            level=QgsMessageBar.INFO,
+                            duration = 2)
+            return
 
         for nr in range(1, min(4, self.bandCount + 1)):
             self.bands[nr]['array'] = self.bands[nr]['data'].ReadAsArray(self.px, self.py, 1, 1)
@@ -165,7 +181,6 @@ class ServalWidget(QWidget, Ui_Serval):
 
 
     def changeCellValue(self, nr):
-        # QApplication.setOverrideCursor(Qt.WaitCursor)
         if not self.bands[nr]['array'] is None:
             if self.bands[nr]['gtype'] > 0 and self.bands[nr]['gtype'] < 6:
                 value_t = int(self.bands[nr]['sbox'].value())
@@ -234,7 +249,18 @@ class ServalWidget(QWidget, Ui_Serval):
                                                     duration = 6)
                 proj_wkt = self.raster.crs().toWkt()
                 self.gdal_raster.SetProjection(str(proj_wkt))
+
             self.gt = self.gdal_raster.GetGeoTransform()
+            self.r_width = self.gdal_raster.RasterXSize
+            self.r_height = self.gdal_raster.RasterYSize
+
+            # raster bounds [xmin, ymin, xmax, ymax] in raster CRS
+            self.rbounds = [
+                self.gt[0],
+                self.gt[3] + self.r_width * self.gt[4] + self.r_height * self.gt[5],
+                self.gt[0] + self.r_width * self.gt[1] + self.r_height * self.gt[2],
+                self.gt[3]
+            ]
             self.bands = {}
             for nr in range(1, min(4, self.bandCount + 1)):
                 self.bands[nr] = {}

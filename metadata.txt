@@ -11,7 +11,7 @@
 name=Serval
 qgisMinimumVersion=2.12
 description=Map tool to set raster cell values.
-version=0.6
+version=0.7
 author=Radoslaw Pasiok
 email=rpasiok@gmail.com
 
