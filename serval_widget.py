@@ -32,6 +32,7 @@ from osgeo import gdal
 from osgeo import gdal_array
 from osgeo.gdalconst import *
 
+gdal.ErrorReset()
 gdal.UseExceptions()
 
 def is_number(s):
@@ -51,7 +52,7 @@ class bandSpinBox(QgsDoubleSpinBox):
 
     def keyPressEvent(self, event):
         b = self.property("bandNr")
-        if event.key() == Qt.Key_Return:
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
             self.setValue(float(self.text()))
             self.parent.changeCellValue(b)
         else:
@@ -59,6 +60,9 @@ class bandSpinBox(QgsDoubleSpinBox):
 
 
 class ServalWidget(QWidget, Ui_Serval):
+
+    closingPlugin = pyqtSignal()
+
     def __init__(self, iface, parent):
         self.iface = iface
         self.parent = parent
@@ -174,7 +178,6 @@ class ServalWidget(QWidget, Ui_Serval):
 
 
     def set_rgb_from_picker(self, c):
-        print("New color: {}".format(str(c)))
         self.bands[1]['sbox'].setValue(c.red())
         self.bands[2]['sbox'].setValue(c.green())
         self.bands[3]['sbox'].setValue(c.blue())
@@ -185,19 +188,18 @@ class ServalWidget(QWidget, Ui_Serval):
             if self.bands[nr]['gtype'] > 0 and self.bands[nr]['gtype'] < 6:
                 value_t = int(self.bands[nr]['sbox'].value())
             elif self.bands[nr]['gtype'] >= 0 and self.bands[nr]['gtype'] < 8:
-                value_t = float(self.bands[nr]['sbox'].value())
+                value_t = float(str(self.bands[nr]['sbox'].value()).replace(',', '.'))
             else:
                 self.iface.messageBar().pushMessage("Serval", "Complex or unknown numeric GDAL data type",
                                                     level=QgsMessageBar.WARNING,
                                                     duration = 5)
                 return
             self.bands[nr]['array'][0][0] = value_t
-            print value_t
             self.bands[nr]['data'].WriteArray(self.bands[nr]['array'], self.px, self.py)
             self.gdal_raster = None # saved to disk
             self.raster.setCacheImage(None)
             self.raster.triggerRepaint()
-            self.activate(True)
+            self.prepare_gdal_raster(True)
 
 
     def setActiveRaster(self):
@@ -217,15 +219,16 @@ class ServalWidget(QWidget, Ui_Serval):
                 self.gdal_raster = None
             except AttributeError:
                 pass
-            self.activate(True)
+            self.prepare_gdal_raster(True)
         else:
             self.raster = None
             self.curRasterLabel.setText('R: None')
             self.mColorButton.setDisabled(True)
-            self.activate(False)
+            self.prepare_gdal_raster(False)
 
 
-    def activate(self, bool=True):
+    def prepare_gdal_raster(self, bool=True):
+        from osgeo import gdal
         sboxes = [self.b1SBox, self.b2SBox, self.b3SBox]
         for i, sbox in enumerate(sboxes):
             sbox.setProperty('bandNr', i+1)
@@ -237,6 +240,7 @@ class ServalWidget(QWidget, Ui_Serval):
             else:
                 self.mColorButton.setDisabled(True)
             try:
+                self.gdal_raster = None
                 self.gdal_raster = gdal.Open(self.raster.source(), GA_Update)
             except:
                 self.iface.messageBar().pushMessage("Serval", "Can't write to this raster format",
@@ -290,3 +294,8 @@ class ServalWidget(QWidget, Ui_Serval):
 
     def showWebsite(self):
         QDesktopServices.openUrl(QUrl('https://github.com/erpas/serval/wiki'))
+
+
+    def closeEvent(self, event):
+        self.closingPlugin.emit()
+        event.accept()
