@@ -458,6 +458,7 @@ class Serval:
     
     
     def define_nodata(self):
+        """Define and write a new NoData value to raster file"""
         # check if user defined additional NODATA value
         if self.rdp.userNoDataValues(1):
             note = '\nNote: there is a user defined NODATA value - check the raster properties!'
@@ -467,11 +468,13 @@ class Serval:
         dt_enum = ['UnknownDataType', 'Byte', 'UInt16', 'Int16', 'UInt32', 'Int32', 'Float32', 'Float64', 'CInt16', 'CInt32', 'CFloat32', 'CFloat64', 'ARGB32', 'ARGB32_Premultiplied']
         dt_idx = self.rdp.dataType(1)
         # current NODATA value
-        if self.rdp.srcHasNoDataValue(1): # source nodata value?
+        if self.rdp.srcHasNoDataValue(1):
             cur_nodata = self.rdp.srcNoDataValue(1)
+            if dt_idx > 0 and dt_idx < 6:
+                cur_nodata = '{0:d}'.format(int(float(cur_nodata)))
         else:
             cur_nodata = ''
-            
+                   
         nd, ok = QInputDialog.getText(None, "Define/Change Raster NODATA Value",
             "Raster data type: {}.{}".format(dt_enum[dt_idx], note), 
             QLineEdit.Normal,
@@ -487,6 +490,8 @@ class Serval:
             new_nodata = int(nd)
         elif dt_idx >= 6 and dt_idx < 8:
             new_nodata = float(nd)
+        else:
+            self.uc.show_warn('Complex or undefined data type!')
         
         res = []
         for nr in range(1, min(4, self.bandCount + 1)):
