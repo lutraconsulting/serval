@@ -9,13 +9,14 @@
 
 [general]
 name=Serval
-qgisMinimumVersion=2.12
+qgisMinimumVersion=2.14
+qgisMaximumVersion=2.99
 description=Map tool to set raster cell values.
-version=0.7
+version=0.8
 author=Radoslaw Pasiok
 email=rpasiok@gmail.com
 
-about=Usage: The tool has 2 modes: probing and drawing. In the probing mode cell values are read and can be changed manually in a spin box. In drawing mode, chosen pixel band values are written to disk. For 3 bands rasters, native QGIS color picker can be used to define bands values.
+about=Usage: The tool has 3 modes: probing, drawing and erasing. In the probing mode cell values are read and can be changed manually in a spinbox. In drawing mode, chosen pixel band values are written to disk. Erasing is assigning NoData value. For 3 bands rasters, native QGIS color picker can be used to define bands values.
 Warning: All changes are immediately written to disk. Always work on a copy!
 
 tracker=http://github.com/erpas/serval/issues
@@ -26,17 +27,21 @@ repository=http://github.com/erpas/serval
 
 # Uncomment the following line and add your changelog:
 changelog=
-        0.6 new fetures:
-                3 bands rasters supported
-                working modes (probing, drawing)
-                QGIS color picker
+        0.8 Plugin interface is now plain toolbar (no dock widget). Workaround for Python crashes under Windows. New features:
+            * undo/redo
+            * define/change raster NoData value
+            * erase (assign NoData value)
+        0.6 new features:
+            * 3 bands rasters supported
+            * working modes (probing, drawing)
+            * QGIS color picker
         0.3 added locked mode
         0.2 bugfix release
         0.1 Initial release.
 
 
 # Tags are comma separated with spaces allowed
-tags=raster, pixel, value
+tags=raster, grid, pixel, value, cell, draw, nodata
 
 homepage=https://github.com/erpas/serval/wiki
 category=Raster

@@ -1,8 +1,0 @@
-<RCC>
-  <qresource prefix="plugins">
-    <file>icons/serval_icon.svg</file>
-    <file>icons/helpContents.svg</file>
-    <file>icons/mActionToggleEditing.svg</file>
-    <file>icons/mIconColorPicker.svg</file>
-  </qresource>
-</RCC>
