@@ -24,7 +24,6 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from qgis.core import *
 from qgis.gui import *
-
 from osgeo import gdal
 from osgeo.gdalconst import *
 from array import array
@@ -79,7 +78,7 @@ class Serval:
         self.mapRegistry = QgsMapLayerRegistry.instance()
         self.iface.currentLayerChanged.connect(self.set_active_raster)
         self.mapRegistry.layersAdded.connect(self.set_active_raster)
-        self.canvas.mapToolSet.connect(self.checkActiveTool)
+        self.canvas.mapToolSet.connect(self.check_active_tool)
 
         
     def setup_tools(self):
@@ -87,17 +86,17 @@ class Serval:
         self.probeTool.setObjectName('SProbeTool')
         self.probeTool.setCursor(QCursor(QPixmap(os.path.join(
             os.path.dirname(__file__), 'icons/probe_tool.svg')), hotX=2, hotY=22))
-        self.probeTool.canvasClicked.connect(self.pointClicked)
+        self.probeTool.canvasClicked.connect(self.point_clicked)
         self.drawTool = QgsMapToolEmitPoint(self.canvas)
         self.drawTool.setObjectName('SDrawTool')
         self.drawTool.setCursor(QCursor(QPixmap(os.path.join(
             os.path.dirname(__file__), 'icons/draw_tool.svg')), hotX=2, hotY=22))
-        self.drawTool.canvasClicked.connect(self.pointClicked)
+        self.drawTool.canvasClicked.connect(self.point_clicked)
         self.gomTool = QgsMapToolEmitPoint(self.canvas)
         self.gomTool.setObjectName('SGomTool')
         self.gomTool.setCursor(QCursor(QPixmap(os.path.join(
             os.path.dirname(__file__), 'icons/gom_tool.svg')), hotX=5, hotY=19))
-        self.gomTool.canvasClicked.connect(self.pointClicked)
+        self.gomTool.canvasClicked.connect(self.point_clicked)
         
 
     def initGui(self):
@@ -106,7 +105,7 @@ class Serval:
             text=u'Show Serval Toolbar',
             add_to_menu=True,
             add_to_toolbar=False,
-            callback=self.showToolbar,
+            callback=self.show_toolbar,
             parent=self.iface.mainWindow())
         
         self.probe_btn = self.add_action(
@@ -173,6 +172,7 @@ class Serval:
             
         self.first_use()
         self.set_active_raster()
+        self.check_undo_redo_btns()
 
     
     def add_action(
@@ -230,12 +230,12 @@ class Serval:
         del self.toolbar
 
 
-    def showToolbar(self):
+    def show_toolbar(self):
         if self.toolbar:
             self.toolbar.show()
             
     
-    def checkActiveTool(self, tool):
+    def check_active_tool(self, tool):
         try:
             if not tool.objectName() in ['SDrawTool', 'SProbeTool', 'SGomTool']:
                 self.probe_btn.setChecked(False)
@@ -286,7 +286,7 @@ class Serval:
             self.toolbar.addWidget(sbox)
 
 
-    def pointClicked(self, point=None, button=None):
+    def point_clicked(self, point=None, button=None):
         # check if active layer is raster
         if self.raster == None:
             self.uc.bar_warn("Choose a raster to set a value", dur=3)
@@ -327,11 +327,14 @@ class Serval:
         new_vals = []
         
         for nr in range(1, min(4, self.bandCount + 1)):
+            # bands data type
+            dt = self.bands[nr]['qtype']
+            
             # self.bands[nr]['array1'] = self.bands[nr]['data'].ReadAsArray(self.px, self.py, 1, 1)
             # ReadAsArray crashes Python on QGIS closing on Windows
             # using workaround with ReadRaster
-            scanline = self.bands[nr]['data'].ReadRaster(self.px, self.py, 1, 1, 1, 1, gdal.GDT_Float32)
-            self.bands[nr]['array'] = array('f', scanline)
+            scanline = self.bands[nr]['data'].ReadRaster(self.px, self.py, 1, 1, 1, 1, dt)
+            self.bands[nr]['array'] = array(dtypes[dt]['atype'], scanline)
             value = self.bands[nr]['array'][0]
             
             # check if nodata is defined
@@ -350,24 +353,15 @@ class Serval:
                     
             # writing mode
             else:
-                if self.bands[nr]['qtype'] > 0 and self.bands[nr]['qtype'] < 6:
-                    old_val = array('l', [int(value)])
-                    if self.mode == 'gom':
-                        value_t = int(self.bands[nr]['nodata'])
-                    else:
-                        value_t = int(self.bands[nr]['sbox'].value())
-                    new_val = array('l', [value_t])
-                elif self.bands[nr]['qtype'] >= 0 and self.bands[nr]['qtype'] < 8:
-                    old_val = array('f', [value])
-                    if self.mode == 'gom':
-                        value_t = self.bands[nr]['nodata']
-                    else:
-                        value_t = float(str(self.bands[nr]['sbox'].value()).replace(',', '.'))
-                    new_val = array('f', [value_t])
+                old_val = array(dtypes[dt]['atype'], [value])
+                if self.mode == 'gom':
+                    val = self.bands[nr]['nodata']
                 else:
-                    self.uc.bar_info("Complex or unknown numeric GDAL data type")
-                    return
-                
+                    val = float(str(self.bands[nr]['sbox'].value()).replace(',', '.'))
+                    
+                val = int(val) if dt < 6 else float(val)
+                new_val = array(dtypes[dt]['atype'], [val])
+                              
                 # add old and new band's values for undo/redo
                 old_vals.append(old_val)
                 new_vals.append(new_val)
@@ -382,7 +376,7 @@ class Serval:
                 self.redos[self.raster.id()] = []
                 
             # write the new cell value(s)
-            self.changeCellValue(new_vals)
+            self.change_cell_value(new_vals)
 
         if self.bandCount > 2:
             self.mColorButton.setColor(QColor(
@@ -399,7 +393,7 @@ class Serval:
         self.bands[3]['sbox'].setValue(c.blue())
 
 
-    def changeCellValue(self, vals, x=None, y=None):
+    def change_cell_value(self, vals, x=None, y=None):
         """Save new bands values to disk"""
         if not x:
             x = self.px
@@ -416,7 +410,7 @@ class Serval:
             # using workaround with WriteRaster
             s = vals[nr-1]
             rbuf = s.tostring()
-            self.bands[nr]['data'].WriteRaster(x, y, 1, 1, rbuf)
+            self.bands[nr]['data'].WriteRaster(x, y, 1, 1, rbuf, buf_type=self.bands[nr]['qtype'])
             self.bands[nr]['data'] = None
             self.bands[nr] = None
         
@@ -427,7 +421,7 @@ class Serval:
         self.raster.triggerRepaint()
         # prepare raster for next actions
         self.prepare_gdal_raster(True)
-        self.checkUndoRedoBtns()
+        self.check_undo_redo_btns()
         
 
     def change_cell_value_key(self):
@@ -435,7 +429,7 @@ class Serval:
         if self.last_point:
             pm = self.mode
             self.mode = 'draw'
-            self.pointClicked()
+            self.point_clicked()
             self.mode = pm
         
         
@@ -445,7 +439,7 @@ class Serval:
             self.redos[self.raster.id()].append(data)
         else:
             return
-        self.changeCellValue(data[0], data[2], data[3])
+        self.change_cell_value(data[0], data[2], data[3])
     
     
     def redo(self):
@@ -454,31 +448,35 @@ class Serval:
             self.undos[self.raster.id()].append(data)
         else:
             return
-        self.changeCellValue(data[1], data[2], data[3])
+        self.change_cell_value(data[1], data[2], data[3])
     
     
     def define_nodata(self):
         """Define and write a new NoData value to raster file"""
+        if not self.raster:
+            self.uc.bar_warn('Select a raster layer to define/change NoData value!')
+            return
+        
         # check if user defined additional NODATA value
         if self.rdp.userNoDataValues(1):
-            note = '\nNote: there is a user defined NODATA value - check the raster properties!'
+            note = '\nNote: there is a user defined NODATA value.\nCheck the raster properties (Transparency).'
         else:
             note = ''
         # first band data type
-        dt_enum = ['UnknownDataType', 'Byte', 'UInt16', 'Int16', 'UInt32', 'Int32', 'Float32', 'Float64', 'CInt16', 'CInt32', 'CFloat32', 'CFloat64', 'ARGB32', 'ARGB32_Premultiplied']
-        dt_idx = self.rdp.dataType(1)
+        dt = self.rdp.dataType(1)
+        
         # current NODATA value
         if self.rdp.srcHasNoDataValue(1):
             cur_nodata = self.rdp.srcNoDataValue(1)
-            if dt_idx > 0 and dt_idx < 6:
+            if dt < 6:
                 cur_nodata = '{0:d}'.format(int(float(cur_nodata)))
         else:
             cur_nodata = ''
-                   
-        nd, ok = QInputDialog.getText(None, "Define/Change Raster NODATA Value",
-            "Raster data type: {}.{}".format(dt_enum[dt_idx], note), 
-            QLineEdit.Normal,
-            str(cur_nodata))
+        
+        label = 'Define/change raster NODATA value.\n\n'
+        label += 'Raster data type: {}.{}'.format(dtypes[dt]['name'], note)
+        nd, ok = QInputDialog.getText(None, "Define NODATA Value",
+            label, QLineEdit.Normal, str(cur_nodata))
         if not ok:
             return
         
@@ -486,13 +484,9 @@ class Serval:
             self.uc.show_warn('Wrong NODATA value!')
             return
         
-        if dt_idx > 0 and dt_idx < 6:
-            new_nodata = int(nd)
-        elif dt_idx >= 6 and dt_idx < 8:
-            new_nodata = float(nd)
-        else:
-            self.uc.show_warn('Complex or undefined data type!')
+        new_nodata = int(nd) if dt < 6 else float(nd)
         
+        # set the NODATA value for each band
         res = []
         for nr in range(1, min(4, self.bandCount + 1)):
             res.append(self.rdp.setNoDataValue(nr, new_nodata))
@@ -508,7 +502,7 @@ class Serval:
 
         
         
-    def checkUndoRedoBtns(self):
+    def check_undo_redo_btns(self):
         """Enable/Disable undo and redo buttons based on availability of undo/redo steps"""
         try:
             if len(self.undos[self.raster.id()]) == 0:
@@ -529,7 +523,24 @@ class Serval:
     
     def set_active_raster(self):
         """Active layer has change - check if it is a raster layer and prepare it for the plugin"""
+        # properly close previous raster data if exist
+        try:
+            for nr in self.bands.keys():
+                self.bands[nr]['data'] = None
+                self.bands = None
+                self.gdal_raster = None
+        except:
+            pass
+        
+        # disable all toolbar actions except Help
+        # (for vectors and unsupported rasters)
+        for action in self.actions:
+            action.setDisabled(True)
+        self.show_help.setEnabled(True)
+                
         layer = self.iface.activeLayer()
+        
+        # check if we can work with the raster
         if layer!=None and layer.isValid() and \
                 layer.type() == 1 and \
                 layer.dataProvider() and \
@@ -537,31 +548,50 @@ class Serval:
                 not layer.crs() is None:
             self.raster = layer
             self.rdp = layer.dataProvider()
-            # if raster properties change get the new properties
-            self.raster.rendererChanged.connect(self.prepare_gdal_raster)
-            # properly close previous raster data if they exist
-            try:
-                for key, value in self.bands.iteritems():
-                    self.bands[key]['data'] = None
-                self.bands = {}
-                self.gdal_raster = None
-            except AttributeError:
-                pass
-            self.prepare_gdal_raster(True)
-            self.checkUndoRedoBtns()
+            self.bandCount = layer.bandCount()
+            
+            # is data type supported?
+            supported = True
+            for nr in range(1, min(4, self.bandCount + 1)):
+                if self.rdp.dataType(nr) == 0 or self.rdp.dataType(nr) > 7:
+                    t = dtypes[self.rdp.dataType(nr)]['name']
+                    supported = False
+                
+            if supported:
+                # disable all toolbar actions (for vectors and unsupported rasters)
+                for action in self.actions:
+                    action.setEnabled(True)
+                # if raster properties change get them (refeshes view)
+                self.raster.rendererChanged.connect(self.prepare_gdal_raster)
+                self.prepare_gdal_raster(True)
+
+            # not supported data type
+            else:
+                msg = 'The raster data type is: {}.'.format(t)
+                msg += '\nServal can\'t work with it, sorry!'
+                self.uc.show_warn(msg)
+                self.raster = None
+                self.mColorButton.setDisabled(True)
+                self.prepare_gdal_raster(False)
+        
+        # it is not a supported raster layer
         else:
             self.raster = None
             self.mColorButton.setDisabled(True)
             self.prepare_gdal_raster(False)
+        
+        self.check_undo_redo_btns()
 
 
-    def prepare_gdal_raster(self, bool=True):
+    def prepare_gdal_raster(self, supported=True):
+        """Open raster using GDAL if it is supported"""
+        # reset bands' spinboxes
         sboxes = [self.b1SBox, self.b2SBox, self.b3SBox]
         for i, sbox in enumerate(sboxes):
             sbox.setProperty('bandNr', i+1)
             sbox.setDisabled(True)
-        if bool:
-            self.bandCount = self.raster.bandCount()
+            
+        if supported:
             if self.bandCount > 2:
                 self.mColorButton.setEnabled(True)
             else:
@@ -569,9 +599,10 @@ class Serval:
             try:
                 self.gdal_raster = gdal.Open(self.raster.source(), GA_Update)
             except:
-                self.uc.bar_error("Can't write to this raster format")
+                self.uc.show_warn("Can't open this raster for writing!")
                 return
             
+            # set projection if needed
             if self.gdal_raster.GetProjection() == '':
                 msg = "The raster has no projection defined. Using the projection defined in the layer's properities."
                 self.uc.bar_info(msg)
@@ -615,18 +646,12 @@ class Serval:
                 # enable band's spinbox
                 self.bands[nr]['sbox'].setEnabled(True)
                 # get bands data type
-                self.bands[nr]['qtype'] = self.rdp.dataType(nr)
-                # integers
-                if self.bands[nr]['qtype'] > 0 and self.bands[nr]['qtype'] < 6:
-                    self.bands[nr]['sbox'].setMinimum(-2147483648)
-                    self.bands[nr]['sbox'].setMaximum(2147483647)
-                    self.bands[nr]['sbox'].setDecimals(0)
-                # floats
-                elif self.bands[nr]['qtype'] >=6 and self.bands[nr]['qtype'] < 8: 
-                    self.bands[nr]['sbox'].setMinimum(-999999999999)
-                    self.bands[nr]['sbox'].setMaximum(999999999999)
-                    self.bands[nr]['sbox'].setDecimals(4)
-
+                dt = self.bands[nr]['qtype'] = self.rdp.dataType(nr)
+                # set spinboxes properties
+                self.bands[nr]['sbox'].setMinimum(dtypes[dt]['min'])
+                self.bands[nr]['sbox'].setMaximum(dtypes[dt]['max'])
+                self.bands[nr]['sbox'].setDecimals(dtypes[dt]['dig'])
+                
 
     def show_website(self):
         QDesktopServices.openUrl(QUrl('https://github.com/erpas/serval/wiki'))
@@ -636,7 +661,9 @@ class Serval:
         meta = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'metadata.txt')
         ver = read_ini_par(meta, 'general', 'version')
         s = QSettings()
-        first = s.value('Serval/version', '0.1')
-        if not first == ver:
+        first = s.value('Serval/version', '0')
+        if first == '0':
+            return
+        elif not first == ver:
             self.uc.show_warn('Please, restart QGIS before using the Serval plugin!')
             s.setValue('Serval/version', ver)

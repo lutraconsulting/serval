@@ -12,7 +12,7 @@ name=Serval
 qgisMinimumVersion=2.14
 qgisMaximumVersion=2.99
 description=Map tool to set raster cell values.
-version=0.8
+version=0.8.1
 author=Radoslaw Pasiok
 email=rpasiok@gmail.com
 
@@ -27,17 +27,15 @@ repository=http://github.com/erpas/serval
 
 # Uncomment the following line and add your changelog:
 changelog=
+        0.8.1 Added support for Float64 data type
         0.8 Plugin interface is now plain toolbar (no dock widget). Workaround for Python crashes under Windows. New features:
             * undo/redo
-            * define/change raster NoData value
-            * erase (assign NoData value)
+            * define/change NoData value for raster bands
+            * erase (assign NoData value to a cell)
         0.6 new features:
             * 3 bands rasters supported
             * working modes (probing, drawing)
             * QGIS color picker
-        0.3 added locked mode
-        0.2 bugfix release
-        0.1 Initial release.
 
 
 # Tags are comma separated with spaces allowed
@@ -47,7 +45,7 @@ homepage=https://github.com/erpas/serval/wiki
 category=Raster
 icon=icons/serval_icon.svg
 # experimental flag
-experimental=True
+experimental=False
 
 # deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False
