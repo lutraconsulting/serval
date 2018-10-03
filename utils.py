@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
- MMTools
+ Serval
                                  A QGIS plugin
-        Print composer, mask and markers creation
+ Set Raster Values
                               -------------------
-        begin                : 2016-08-09
+        begin                : 2015-12-30
         git sha              : $Format:%H$
-        copyright            : (C) 2016 by Lutra
-        email                : info@lutraconsulting.co.uk
+        copyright            : (C) 2015 by Radosław Pasiok
+        email                : rpasiok@gmail.com
  ***************************************************************************/
 
 /***************************************************************************
@@ -22,7 +22,7 @@
 """
 
 import os.path
-import ConfigParser
+
 
 dtypes = {
     0: {'name': 'UnknownDataType'}, 
@@ -53,12 +53,10 @@ def is_number(s):
     try:
         float(s)
         return True
-    except ValueError:
+    except (ValueError, TypeError):
         return False
-    
 
-def read_ini_par(file, section, parameter):
-    # Get the email address from the configuration file file
-    parser = ConfigParser.ConfigParser()
-    parser.read(file)
-    return parser.get(section, parameter)
+
+def icon_path(icon_filename):
+    plugin_dir = os.path.dirname(__file__)
+    return os.path.join(plugin_dir, 'icons', icon_filename)

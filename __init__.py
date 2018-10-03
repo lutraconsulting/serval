@@ -22,8 +22,10 @@
  This script initializes the plugin, making it known to QGIS.
 """
 
+from __future__ import absolute_import
+
 
 # noinspection PyPep8Naming
 def classFactory(iface):  # pylint: disable=invalid-name
-    from serval import Serval
+    from .serval import Serval
     return Serval(iface)
