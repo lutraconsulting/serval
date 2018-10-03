@@ -316,8 +316,6 @@ class Serval(object):
         # data types for each band
         dtypes = []
 
-        print('old raster values', vals)
-        
         for nr in range(1, min(4, self.band_count + 1)):
             # bands data type
             dtypes.append(self.bands[nr]['qtype'])
@@ -332,9 +330,6 @@ class Serval(object):
             # if in probing mode, set band's spinbox value
             if self.mode == 'probe':
                 val = vals[nr] if is_number(vals[nr]) else self.bands[nr]['nodata']
-                print('value: ', val)
-                print('min val for sbox', self.bands[nr]['sbox'].minimum())
-                print('max val for sbox', self.bands[nr]['sbox'].maximum())
                 self.bands[nr]['sbox'].setValue(val)
                 self.bands[nr]['sbox'].setFocus()
                 self.bands[nr]['sbox'].selectAll()
@@ -343,8 +338,8 @@ class Serval(object):
 
             old_vals = [v for k, v in sorted(vals.items())]
             if self.mode == 'gom':
-                # TODO
-                new_vals = []  # self.bands[nr]['nodata']
+                temp_vals = [self.bands[nr]['nodata'] for nr in sorted(vals.keys())]
+                new_vals = [int(v) if dtypes[i] < 6 else float(v) for i, v in enumerate(temp_vals)]
             else:
                 temp_vals = [self.bands[nr]['sbox'].value() for nr in sorted(vals.keys())]
                 new_vals = [int(v) if dtypes[i] < 6 else float(v) for i, v in enumerate(temp_vals)]
@@ -389,7 +384,6 @@ class Serval(object):
         # TODO: triggerRepaint is not enough to clear the cache!
 
         self.raster.triggerRepaint()
-        self.raster.dataProvider().reload()
 
         # prepare raster for next actions
         self.prepare_raster(True)
