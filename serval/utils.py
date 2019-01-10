@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
- Serval
-                                 A QGIS plugin
- Set Raster Values
-                              -------------------
-        begin                : 2015-12-30
-        git sha              : $Format:%H$
-        copyright            : (C) 2015 by Radosław Pasiok
-        email                : rpasiok@gmail.com
+ Serval,  A QGIS plugin
+
+
+ Map tools for manipulating raster cell values
+
+    begin            : 2015-12-30
+    copyright        : (C) 2019 Radosław Pasiok for Lutra Consulting Ltd.
+    email            : info@lutraconsulting.co.uk
  ***************************************************************************/
 
 /***************************************************************************
