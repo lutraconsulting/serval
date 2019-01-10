@@ -1,23 +1,14 @@
-# This file contains metadata for your plugin. Since 
-# version 2.0 of QGIS this is the proper way to supply 
-# information about a plugin. The old method of 
-# embedding metadata in __init__.py will 
-# is no longer supported since version 2.0.
-
-# This file should be included when you package your plugin.
-# Mandatory items:
-
 [general]
 name=Serval
-qgisMinimumVersion=2.14
-qgisMaximumVersion=2.99
-description=Map tool to set raster cell values.
-version=0.8.1
-author=Radoslaw Pasiok
-email=rpasiok@gmail.com
+qgisMinimumVersion=2.99
+qgisMaximumVersion=3.98
+description=Map tool for manipulating raster cell values.
+version=3.0
+author=Radoslaw Pasiok for Lutra Consulting Ltd.
+email=radek.pasiok@lutraconsulting.co.uk
 
-about=Usage: The tool has 3 modes: probing, drawing and erasing. In the probing mode cell values are read and can be changed manually in a spinbox. In drawing mode, chosen pixel band values are written to disk. Erasing is assigning NoData value. For 3 bands rasters, native QGIS color picker can be used to define bands values.
-Warning: All changes are immediately written to disk. Always work on a copy!
+about=Usage: The tool has 3 modes: probing, drawing and erasing. In the probing mode cell values are read and can be changed manually in a spinbox. In drawing mode, chosen band values are set to a raster cell and immediately written to disk. Erasing is setting a raster cell value to NoData. For 3 bands rasters, native QGIS color picker can be used to define bands values.
+Warning: All changes are immediately written to disk. Always keep backup of your original raster!
 
 tracker=http://github.com/erpas/serval/issues
 repository=http://github.com/erpas/serval
@@ -27,6 +18,7 @@ repository=http://github.com/erpas/serval
 
 # Uncomment the following line and add your changelog:
 changelog=
+        3.0 Port to QGIS 3
         0.8.1 Added support for Float64 data type
         0.8 Plugin interface is now plain toolbar (no dock widget). Workaround for Python crashes under Windows. New features:
             * undo/redo

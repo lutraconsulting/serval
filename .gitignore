@@ -1,7 +1,4 @@
 .idea/
-help/build/
-nbproject/
-
-
-
-
+serval/help/build/
+serval/nbproject/
+serval/__pycache__/

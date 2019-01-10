@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
- MMTools
-                                 A QGIS plugin
-        Print composer, mask and markers creation
-                              -------------------
-        begin                : 2016-08-09
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Lutra
-        email                : info@lutraconsulting.co.uk
+ Serval,  A QGIS plugin
+
+
+ Map tools for manipulating raster cell values
+
+    begin            : 2015-12-30
+    copyright        : (C) 2019 Radosław Pasiok for Lutra Consulting Ltd.
+    email            : info@lutraconsulting.co.uk
  ***************************************************************************/
 
 /***************************************************************************
@@ -22,7 +22,7 @@
 """
 
 import os.path
-import ConfigParser
+
 
 dtypes = {
     0: {'name': 'UnknownDataType'}, 
@@ -37,9 +37,9 @@ dtypes = {
     5: {'name': 'Int32', 'atype': 'i',
         'min': -2147483648, 'max': 2147483647, 'dig': 0},
     6: {'name': 'Float32', 'atype': 'f',
-        'min': -3.4e38, 'max': 3.4e38, 'dig': 5}, 
+        'min': -3.4e38, 'max': 3.4e38, 'dig': 4},   # max digs 5
     7: {'name': 'Float64', 'atype': 'd',
-        'min': -1.7e308, 'max': 1.7e308, 'dig': 12}, 
+        'min': -1.7e308, 'max': 1.7e308, 'dig': 4},  # max digs 12
     8: {'name': 'CInt16'}, 
     9: {'name': 'CInt32'}, 
     10: {'name': 'CFloat32'}, 
@@ -53,12 +53,10 @@ def is_number(s):
     try:
         float(s)
         return True
-    except ValueError:
+    except (ValueError, TypeError):
         return False
-    
 
-def read_ini_par(file, section, parameter):
-    # Get the email address from the configuration file file
-    parser = ConfigParser.ConfigParser()
-    parser.read(file)
-    return parser.get(section, parameter)
+
+def icon_path(icon_filename):
+    plugin_dir = os.path.dirname(__file__)
+    return os.path.join(plugin_dir, 'icons', icon_filename)

@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
- MMTools
-                                 A QGIS plugin
-        Print composer, mask and markers creation
-                              -------------------
-        begin                : 2016-08-09
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Lutra
-        email                : info@lutraconsulting.co.uk
+ Serval,  A QGIS plugin
+
+
+ Map tools for manipulating raster cell values
+
+    begin            : 2015-12-30
+    copyright        : (C) 2019 Radosław Pasiok for Lutra Consulting Ltd.
+    email            : info@lutraconsulting.co.uk
  ***************************************************************************/
 
 /***************************************************************************
@@ -21,9 +21,8 @@
  ***************************************************************************/
 """
 
-from PyQt4.QtGui import QMessageBox
-from qgis.gui import QgsMessageBar
-from qgis.core import QgsMessageLog
+from qgis.PyQt.QtWidgets import QMessageBox
+from qgis.core import QgsMessageLog, Qgis
 
 
 class UserCommunication:
@@ -36,22 +35,17 @@ class UserCommunication:
     def show_info(self, msg):
         QMessageBox.information(self.iface.mainWindow(), self.context, msg)
         
-        
     def show_warn(self, msg):
         QMessageBox.warning(self.iface.mainWindow(), self.context, msg)
-        
         
     def log_info(self, msg):
         QgsMessageLog.logMessage(msg, self.context, QgsMessageLog.INFO)
         
-        
     def bar_error(self, msg):
-        self.iface.messageBar().pushMessage(self.context, msg, level=QgsMessageBar.CRITICAL)
-
+        self.iface.messageBar().pushMessage(self.context, msg, level=Qgis.MessageLevel.Critical)
 
     def bar_warn(self, msg, dur=5):
-        self.iface.messageBar().pushMessage(self.context, msg, level=QgsMessageBar.WARNING, duration=dur)
+        self.iface.messageBar().pushMessage(self.context, msg, level=Qgis.MessageLevel.Warning, duration=dur)
         
-
     def bar_info(self, msg, dur=5):
-        self.iface.messageBar().pushMessage(self.context, msg, level=QgsMessageBar.INFO, duration=dur)
+        self.iface.messageBar().pushMessage(self.context, msg, duration=dur)
