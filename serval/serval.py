@@ -26,10 +26,17 @@ from builtins import object
 from collections import defaultdict
 import os.path
 
-from qgis.PyQt.QtCore import QSize, Qt, QUrl, QSettings
+from qgis.PyQt.QtCore import QSize, Qt, QUrl, pyqtSignal
 from qgis.PyQt.QtGui import QPixmap, QCursor, QIcon, QColor, QDesktopServices
 from qgis.PyQt.QtWidgets import QAction, QAbstractSpinBox, QInputDialog, QLineEdit
-from qgis.core import QgsProject, QgsPointXY, QgsCoordinateTransform, QgsCsException, Qgis, QgsRasterBlock, QgsRaster, QgsMapRendererCache
+from qgis.core import (
+    QgsProject,
+    QgsPointXY,
+    QgsCoordinateTransform,
+    QgsCsException,
+    QgsRasterBlock,
+    QgsRaster
+)
 from qgis.gui import QgsDoubleSpinBox, QgsMapToolEmitPoint, QgsColorButton
 
 from .utils import is_number, icon_path, dtypes
@@ -38,18 +45,18 @@ from .user_communication import UserCommunication
 
 class BandSpinBox(QgsDoubleSpinBox):
     """Spinbox class for raster band value"""
-    def __init__(self, parent):
+
+    user_hit_enter = pyqtSignal()
+
+    def __init__(self, parent=None):
         super(BandSpinBox, self).__init__()
-        self.parent = parent
 
     def keyPressEvent(self, event):
         b = self.property("bandNr")
         if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
             if is_number(self.text().replace(',','.')):
                 self.setValue(float(self.text().replace(',', '.')))
-                self.parent.change_cell_value_key()
-            else:
-                self.parent.uc.bar_warn('Enter a number!')
+                self.user_hit_enter.emit()
         else:
             QgsDoubleSpinBox.keyPressEvent(self, event)
             
@@ -60,24 +67,21 @@ class Serval(object):
         self.canvas = self.iface.mapCanvas()
         self.plugin_dir = os.path.dirname(__file__)
         self.uc = UserCommunication(iface, 'Serval')
-        self.menu = u'Serval'
-        self.actions = []
-        self.toolbar = self.iface.addToolBar(u'Serval')
-        self.toolbar.setObjectName(u'Serval')
-        self.setup_tools()
         self.mode = 'probe'
-        self.bands = {}
+        self.bands = None
+        self.raster = None
         self.px, self.py = [0, 0]
         self.last_point = QgsPointXY(0, 0)
         self.undos = defaultdict(list)
         self.redos = defaultdict(list)
-        
         self.qgis_project = QgsProject()
-        self.iface.currentLayerChanged.connect(self.set_active_raster)
-        self.qgis_project.layersAdded.connect(self.set_active_raster)
-        self.canvas.mapToolSet.connect(self.check_active_tool)
-        
-    def setup_tools(self):
+
+        self.menu = u'Serval'
+        self.actions = []
+        self.toolbar = self.iface.addToolBar(u'Serval')
+        self.toolbar.setObjectName(u'Serval')
+
+        # Map tools
         self.probeTool = QgsMapToolEmitPoint(self.canvas)
         self.probeTool.setObjectName('ServalProbeTool')
         self.probeTool.setCursor(QCursor(QPixmap(icon_path('probe_tool.svg')), hotX=2, hotY=22))
@@ -91,7 +95,27 @@ class Serval(object):
         self.gomTool.setCursor(QCursor(QPixmap(icon_path('gom_tool.svg')), hotX=5, hotY=19))
         self.gomTool.canvasClicked.connect(self.point_clicked)
 
+        self.mColorButton = QgsColorButton()
+        icon1 = QIcon(icon_path('mIconColorBox.svg'))
+        self.mColorButton.setIcon(icon1)
+        self.mColorButton.setMinimumSize(QSize(40, 24))
+        self.mColorButton.setMaximumSize(QSize(40, 24))
+        self.mColorButton.colorChanged.connect(self.set_rgb_from_picker)
+
+        self.b1SBox = BandSpinBox()
+        self.b2SBox = BandSpinBox()
+        self.b3SBox = BandSpinBox()
+        self.sboxes = [self.b1SBox, self.b2SBox, self.b3SBox]
+        for sb in self.sboxes:
+            sb.user_hit_enter.connect(self.change_cell_value_key)
+
+        self.iface.currentLayerChanged.connect(self.set_active_raster)
+        self.qgis_project.layersAdded.connect(self.set_active_raster)
+        self.canvas.mapToolSet.connect(self.check_active_tool)
+
     def initGui(self):
+
+        # Menu and toolbar actions
         self.add_action(
             'serval_icon.svg',
             text=u'Show Serval Toolbar',
@@ -99,7 +123,7 @@ class Serval(object):
             add_to_toolbar=False,
             callback=self.show_toolbar,
             parent=self.iface.mainWindow())
-        
+
         self.probe_btn = self.add_action(
             'probe.svg',
             text=u'Probing Mode',
@@ -107,6 +131,7 @@ class Serval(object):
             add_to_toolbar=True,
             callback=self.activate_probing,
             parent=self.iface.mainWindow())
+
         self.draw_btn = self.add_action(
             'draw.svg',
             text=u'Drawing Mode',
@@ -114,6 +139,7 @@ class Serval(object):
             add_to_toolbar=True,
             callback=self.activate_drawing,
             parent=self.iface.mainWindow())
+
         self.gom_btn = self.add_action(
             'gom.svg',
             text=u'Set Raster Cell Value to NoData',
@@ -121,6 +147,9 @@ class Serval(object):
             add_to_toolbar=True,
             callback=self.activate_gom,
             parent=self.iface.mainWindow())
+
+        self.checkable_tool_btns = [self.draw_btn, self.probe_btn, self.gom_btn]
+
         self.def_nodata_btn = self.add_action(
             'define_nodata.svg',
             text=u'Define/Change Raster NoData Value',
@@ -128,17 +157,11 @@ class Serval(object):
             add_to_toolbar=True,
             callback=self.define_nodata,
             parent=self.iface.mainWindow())
-            
-        self.mColorButton = QgsColorButton()
-        icon1 = QIcon(icon_path('mIconColorBox.svg'))
-        self.mColorButton.setIcon(icon1)
-        self.mColorButton.setMinimumSize(QSize(40, 24))
-        self.mColorButton.setMaximumSize(QSize(40, 24))
-        self.mColorButton.colorChanged.connect(self.set_rgb_from_picker)
+
         self.toolbar.addWidget(self.mColorButton)
-        
+
         self.setup_spin_boxes()
-         
+
         self.undo_btn = self.add_action(
             'undo.svg',
             text=u'Undo',
@@ -146,6 +169,7 @@ class Serval(object):
             add_to_toolbar=True,
             callback=self.undo,
             parent=self.iface.mainWindow())
+
         self.redo_btn = self.add_action(
             'redo.svg',
             text=u'Redo',
@@ -153,6 +177,7 @@ class Serval(object):
             add_to_toolbar=True,
             callback=self.redo,
             parent=self.iface.mainWindow())
+
         self.show_help = self.add_action(
             'help.svg',
             text=u'Help',
@@ -161,12 +186,9 @@ class Serval(object):
             add_to_menu=True,
             callback=self.show_website,
             parent=self.iface.mainWindow())
-            
-        # self.first_use()
+
         self.set_active_raster()
         self.check_undo_redo_btns()
-
-        self.tool_btns = [self.draw_btn, self.probe_btn, self.gom_btn]
 
     def add_action(
         self,
@@ -203,21 +225,14 @@ class Serval(object):
         return action
 
     def unload(self):
-        # properly close raster data if they exist
-        try:
-            for key, value in self.bands.iteritems():
-                self.bands[key]['data'] = None
-                self.bands[key]['array'] = None
-            self.bands = None
-        except AttributeError:
-            pass
+        self.iface.actionPan().trigger()
 
         for action in self.actions:
             self.iface.removePluginMenu(
                 u'Serval',
                 action)
             self.iface.removeToolBarIcon(action)
-        del self.mColorButton, self.b1SBox, self.b2SBox, self.b3SBox
+
         del self.toolbar
 
     def show_toolbar(self):
@@ -233,8 +248,8 @@ class Serval(object):
         except AttributeError:
             pass
 
-    def check_tool_btn(self, cur_tool_btn):
-        for btn in self.tool_btns:
+    def set_checked_tool_btn(self, cur_tool_btn):
+        for btn in self.checkable_tool_btns:
             if btn == cur_tool_btn:
                 btn.setChecked(True)
             else:
@@ -243,27 +258,24 @@ class Serval(object):
     def activate_probing(self):
         self.mode = 'probe'
         self.canvas.setMapTool(self.probeTool)
-        self.check_tool_btn(self.probe_btn)
+        self.set_checked_tool_btn(self.probe_btn)
 
     def activate_drawing(self):
         self.mode = 'draw'
         self.canvas.setMapTool(self.drawTool)
-        self.check_tool_btn(self.draw_btn)
+        self.set_checked_tool_btn(self.draw_btn)
 
     def activate_gom(self):
         self.mode = 'gom'
         self.canvas.setMapTool(self.gomTool)
-        self.check_tool_btn(self.gom_btn)
+        self.set_checked_tool_btn(self.gom_btn)
 
     def setup_spin_boxes(self):
-        self.b1SBox = BandSpinBox(self)
-        self.b2SBox = BandSpinBox(self)
-        self.b3SBox = BandSpinBox(self)
-        sboxes = [self.b1SBox, self.b2SBox, self.b3SBox]
-        for sbox in sboxes:
+
+        for sbox in self.sboxes:
             sbox.setMinimumSize(QSize(60, 25))
             sbox.setMaximumSize(QSize(60, 25))
-            sbox.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignVCenter)
+            sbox.setAlignment(Qt.AlignLeft)
             sbox.setButtonSymbols(QAbstractSpinBox.NoButtons)
             sbox.setKeyboardTracking(False)
             sbox.setShowClearButton(False)
@@ -273,7 +285,7 @@ class Serval(object):
 
     def point_clicked(self, point=None, button=None):
         # check if active layer is raster
-        if self.raster == None:
+        if self.raster is None:
             self.uc.bar_warn("Choose a raster to work with...", dur=3)
             return
         
@@ -298,13 +310,13 @@ class Serval(object):
         self.last_point = pos
         
         # check if the point is within active raster bounds
-        if pos.x() >= self.rbounds[0] and pos.x() <= self.rbounds[2]:
+        if self.rbounds[0] <= pos.x() <= self.rbounds[2]:
             self.px = int((pos.x() - self.rbounds[0]) / self.raster.rasterUnitsPerPixelX())  # - self.gt[0]) / self.gt[1])
         else:
             self.uc.bar_info("Out of x bounds", dur=2)
             return
 
-        if pos.y() >= self.rbounds[1] and pos.y() <= self.rbounds[3]:
+        if self.rbounds[1] <= pos.y() <= self.rbounds[3]:
             self.py = int((self.rbounds[3] - pos.y()) / self.raster.rasterUnitsPerPixelY()) #  - self.gt[3]) / self.gt[5])
         else:
             self.uc.bar_info("Out of y bounds", dur=2)
@@ -312,6 +324,11 @@ class Serval(object):
 
         # probe current raster value, dict: band_nr -> value
         vals = self.rdp.identify(pos, QgsRaster.IdentifyFormatValue).results()
+
+        # for rasters having more that 3 bands, ignore other than 1-3
+        bands_to_ignore = [i for i in vals.keys() if i > 3]
+        for band_nr in bands_to_ignore:
+            del vals[band_nr]
 
         # data types for each band
         dtypes = []
@@ -321,7 +338,7 @@ class Serval(object):
             dtypes.append(self.bands[nr]['qtype'])
             
             # check if nodata is defined
-            if self.mode == 'gom' and self.bands[nr]['nodata'] == None:
+            if self.mode == 'gom' and self.bands[nr]['nodata'] is None:
                 msg = 'NODATA value is not defined for one of the raster\'s bands.\n'
                 msg += 'Please define it in raster properties dialog!'
                 self.uc.show_warn(msg)
@@ -336,7 +353,7 @@ class Serval(object):
 
         if not self.mode == 'probe':
 
-            old_vals = [v for k, v in sorted(vals.items())]
+            old_vals = [v if v is not None else self.bands[k]['nodata'] for k, v in sorted(vals.items())]
             if self.mode == 'gom':
                 temp_vals = [self.bands[nr]['nodata'] for nr in sorted(vals.keys())]
                 new_vals = [int(v) if dtypes[i] < 6 else float(v) for i, v in enumerate(temp_vals)]
@@ -367,7 +384,10 @@ class Serval(object):
         """Save new bands values to data provider"""
 
         if not self.rdp.isEditable():
-            self.rdp.setEditable(True)
+            success = self.rdp.setEditable(True)
+            if not success:
+                self.uc.show_warn('QGIS can\'t modify this type of raster')
+                return
 
         if not x:
             x = self.px
@@ -376,13 +396,12 @@ class Serval(object):
         for nr in range(1, min(4, self.band_count + 1)):
             rblock = QgsRasterBlock(self.bands[nr]['qtype'], 1, 1)
             rblock.setValue(0, 0, vals[nr - 1])
-            self.rdp.writeBlock(rblock, nr, x, y)
+            success = self.rdp.writeBlock(rblock, nr, x, y)
+            if not success:
+                self.uc.show_warn('QGIS can\'t modify this type of raster')
+                return
 
         self.rdp.setEditable(False)
-
-        # refresh raster view
-        # TODO: triggerRepaint is not enough to clear the cache!
-
         self.raster.triggerRepaint()
 
         # prepare raster for next actions
@@ -458,9 +477,8 @@ class Serval(object):
             self.uc.show_warn('Setting new NODATA value failed!')
         else:
             self.uc.bar_info('Succesful setting new NODATA values!', dur=2)
-        self.prepare_raster()
 
-        # TODO: triggerRepaint is not enough to clear the cache!
+        self.prepare_raster()
         self.raster.triggerRepaint()
         
     def check_undo_redo_btns(self):
@@ -480,27 +498,26 @@ class Serval(object):
                 self.redo_btn.setEnabled(True)
         except:
             self.redo_btn.setDisabled(True)
-    
-    def set_active_raster(self):
-        """Active layer has change - check if it is a raster layer and prepare it for the plugin"""
-        # properly close previous raster data if exist
-        try:
-            for nr in self.bands.keys():
-                self.bands[nr]['data'] = None
-                self.bands = None
-        except:
-            pass
-        
-        # disable all toolbar actions but Help
-        # (for vectors and unsupported rasters)
+
+    def disable_toolbar_actions(self):
+        # disable all toolbar actions but Help (for vectors and unsupported rasters)
         for action in self.actions:
             action.setDisabled(True)
         self.show_help.setEnabled(True)
-                
+    
+    def set_active_raster(self):
+        """Active layer has change - check if it is a raster layer and prepare it for the plugin"""
+
+        if self.bands:
+            self.bands = None
+
+        for sbox in self.sboxes:
+            sbox.setValue(0)
+
         layer = self.iface.activeLayer()
         
         # check if we can work with the raster
-        if layer!=None and layer.isValid() and \
+        if layer != None and layer.isValid() and \
                 layer.type() == 1 and \
                 layer.dataProvider() and \
                 (layer.dataProvider().capabilities() & 2) and \
@@ -517,7 +534,7 @@ class Serval(object):
                     supported = False
                 
             if supported:
-                # disable all toolbar actions (for vectors and unsupported rasters)
+                # enable all toolbar actions
                 for action in self.actions:
                     action.setEnabled(True)
                 # if raster properties change get them (refeshes view)
@@ -544,10 +561,10 @@ class Serval(object):
 
     def prepare_raster(self, supported=True):
         """Open raster using GDAL if it is supported"""
-        # reset bands' spinboxes
-        sboxes = [self.b1SBox, self.b2SBox, self.b3SBox]
-        for i, sbox in enumerate(sboxes):
-            sbox.setProperty('bandNr', i+1)
+
+        # reset bands' spin boxes
+        for i, sbox in enumerate(self.sboxes):
+            sbox.setProperty('bandNr', i + 1)
             sbox.setDisabled(True)
             
         if not supported:
@@ -564,8 +581,7 @@ class Serval(object):
         self.bands = {}
         for nr in range(1, min(4, self.band_count + 1)):
             self.bands[nr] = {}
-            self.bands[nr]['sbox'] = sboxes[nr-1]
-            # self.bands[nr]['data'] = self.gdal_raster.GetRasterBand(nr)
+            self.bands[nr]['sbox'] = self.sboxes[nr - 1]
 
             # NODATA
             if self.rdp.sourceHasNoDataValue(nr): # source nodata value?
@@ -583,25 +599,15 @@ class Serval(object):
                     # leave nodata undefined
                     self.bands[nr]['nodata'] = None
 
-            # enable band's spinbox
+            # enable band's spin box
             self.bands[nr]['sbox'].setEnabled(True)
             # get bands data type
             dt = self.bands[nr]['qtype'] = self.rdp.dataType(nr)
-            # set spinboxes properties
+            # set spin boxes properties
             self.bands[nr]['sbox'].setMinimum(dtypes[dt]['min'])
             self.bands[nr]['sbox'].setMaximum(dtypes[dt]['max'])
             self.bands[nr]['sbox'].setDecimals(dtypes[dt]['dig'])
 
+    @staticmethod
     def show_website(self):
         QDesktopServices.openUrl(QUrl('https://github.com/erpas/serval/wiki'))
-
-    # def first_use(self):
-    #     meta = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'metadata.txt')
-    #     ver = read_ini_par(meta, 'general', 'version')
-    #     s = QSettings()
-    #     first = s.value('Serval/version', '0')
-    #     if first == '0':
-    #         return
-    #     elif not first == ver:
-    #         self.uc.show_warn('Please, restart QGIS before using the Serval plugin!')
-    #         s.setValue('Serval/version', ver)

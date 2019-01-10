@@ -37,9 +37,9 @@ dtypes = {
     5: {'name': 'Int32', 'atype': 'i',
         'min': -2147483648, 'max': 2147483647, 'dig': 0},
     6: {'name': 'Float32', 'atype': 'f',
-        'min': -3.4e38, 'max': 3.4e38, 'dig': 5}, 
+        'min': -3.4e38, 'max': 3.4e38, 'dig': 4},   # max digs 5
     7: {'name': 'Float64', 'atype': 'd',
-        'min': -1.7e308, 'max': 1.7e308, 'dig': 12}, 
+        'min': -1.7e308, 'max': 1.7e308, 'dig': 4},  # max digs 12
     8: {'name': 'CInt16'}, 
     9: {'name': 'CInt32'}, 
     10: {'name': 'CFloat32'}, 
