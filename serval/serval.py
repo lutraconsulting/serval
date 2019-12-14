@@ -33,7 +33,6 @@ from qgis.PyQt.QtWidgets import QAction, QAbstractSpinBox, QInputDialog, QLineEd
 from qgis.core import (
     QgsCoordinateTransform,
     QgsCsException,
-    QgsMapLayerType,
     QgsPointXY,
     QgsProject,
     QgsRasterBlock,
@@ -44,6 +43,13 @@ from qgis.gui import QgsDoubleSpinBox, QgsMapToolEmitPoint, QgsColorButton
 
 from .utils import is_number, icon_path, dtypes
 from .user_communication import UserCommunication
+
+try:
+    # QgsMapLayerType added in QGIS 3.8
+    from qgis.core import QgsMapLayerType
+    raster_layer_type = QgsMapLayerType.RasterLayer
+except ImportError:
+    raster_layer_type = 1
 
 
 class BandSpinBox(QgsDoubleSpinBox):
@@ -512,7 +518,7 @@ class Serval(object):
         """Check if we can work with the raster"""
         if layer == None \
                 or not layer.isValid() \
-                or not layer.type() == QgsMapLayerType.RasterLayer \
+                or not layer.type() == raster_layer_type \
                 or not (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create) \
                 or layer.crs() is None:
             return False
