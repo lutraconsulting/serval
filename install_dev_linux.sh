@@ -12,7 +12,7 @@ echo "ADD PLUGIN TO QGIS (dev version -- link)"
 PWD=`pwd`
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-PLUGIN=serval
+PLUGIN=Serval
 SRC=$DIR/$PLUGIN
 
 DEST=~/.local/share/QGIS/QGIS3/profiles/default/python/plugins
