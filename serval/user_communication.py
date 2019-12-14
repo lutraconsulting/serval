@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
- Serval,  A QGIS plugin
+ serval,  A QGIS plugin
 
 
  Map tools for manipulating raster cell values
@@ -42,10 +42,10 @@ class UserCommunication:
         QgsMessageLog.logMessage(msg, self.context, QgsMessageLog.INFO)
         
     def bar_error(self, msg):
-        self.iface.messageBar().pushMessage(self.context, msg, level=Qgis.MessageLevel.Critical)
+        self.iface.messageBar().pushMessage(self.context, msg, level=Qgis.Critical)
 
     def bar_warn(self, msg, dur=5):
-        self.iface.messageBar().pushMessage(self.context, msg, level=Qgis.MessageLevel.Warning, duration=dur)
+        self.iface.messageBar().pushMessage(self.context, msg, level=Qgis.Warning, duration=dur)
         
     def bar_info(self, msg, dur=5):
         self.iface.messageBar().pushMessage(self.context, msg, duration=dur)
