@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
- Serval,  A QGIS plugin
+ serval,  A QGIS plugin
 
 
  Map tools for manipulating raster cell values
@@ -31,12 +31,14 @@ from qgis.PyQt.QtCore import QSize, Qt, QUrl, pyqtSignal
 from qgis.PyQt.QtGui import QPixmap, QCursor, QIcon, QColor, QDesktopServices
 from qgis.PyQt.QtWidgets import QAction, QAbstractSpinBox, QInputDialog, QLineEdit
 from qgis.core import (
-    QgsProject,
-    QgsPointXY,
     QgsCoordinateTransform,
     QgsCsException,
+    QgsMapLayerType,
+    QgsPointXY,
+    QgsProject,
     QgsRasterBlock,
-    QgsRaster
+    QgsRaster,
+    QgsRasterDataProvider
 )
 from qgis.gui import QgsDoubleSpinBox, QgsMapToolEmitPoint, QgsColorButton
 
@@ -506,6 +508,17 @@ class Serval(object):
             action.setDisabled(True)
         self.show_help.setEnabled(True)
     
+    def check_layer(self, layer):
+        """Check if we can work with the raster"""
+        if layer == None \
+                or not layer.isValid() \
+                or not layer.type() == QgsMapLayerType.RasterLayer \
+                or not (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create) \
+                or layer.crs() is None:
+            return False
+        else:
+            return True
+
     def set_active_raster(self):
         """Active layer has change - check if it is a raster layer and prepare it for the plugin"""
 
@@ -516,13 +529,8 @@ class Serval(object):
             sbox.setValue(0)
 
         layer = self.iface.activeLayer()
-        
-        # check if we can work with the raster
-        if layer != None and layer.isValid() and \
-                layer.type() == 1 and \
-                layer.dataProvider() and \
-                (layer.dataProvider().capabilities() & 2) and \
-                not layer.crs() is None:
+
+        if self.check_layer(layer):
             self.raster = layer
             self.rdp = layer.dataProvider()
             self.band_count = layer.bandCount()
@@ -538,7 +546,7 @@ class Serval(object):
                 # enable all toolbar actions
                 for action in self.actions:
                     action.setEnabled(True)
-                # if raster properties change get them (refeshes view)
+                # if raster properties change, get them (refeshes view)
                 self.raster.rendererChanged.connect(self.prepare_raster)
 
                 self.prepare_raster(supported)
@@ -548,17 +556,18 @@ class Serval(object):
                 msg = 'The raster data type is: {}.'.format(t)
                 msg += '\nServal can\'t work with it, sorry!'
                 self.uc.show_warn(msg)
-                self.raster = None
-                self.mColorButton.setDisabled(True)
-                self.prepare_raster(False)
+                self.reset_raster()
         
         # it is not a supported raster layer
         else:
-            self.raster = None
-            self.mColorButton.setDisabled(True)
-            self.prepare_raster(False)
-        
+            self.reset_raster()
+
         self.check_undo_redo_btns()
+
+    def reset_raster(self):
+        self.raster = None
+        self.mColorButton.setDisabled(True)
+        self.prepare_raster(False)
 
     def prepare_raster(self, supported=True):
         """Open raster using GDAL if it is supported"""
@@ -610,5 +619,5 @@ class Serval(object):
             self.bands[nr]['sbox'].setDecimals(dtypes[dt]['dig'])
 
     @staticmethod
-    def show_website(self):
+    def show_website():
         QDesktopServices.openUrl(QUrl('https://github.com/erpas/serval/wiki'))
