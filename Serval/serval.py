@@ -89,6 +89,7 @@ class Serval(object):
         self.actions = []
         self.toolbar = self.iface.addToolBar(u'Serval')
         self.toolbar.setObjectName(u'Serval')
+        self.toolbar.setToolTip(u'Serval Toolbar')
 
         # Map tools
         self.probeTool = QgsMapToolEmitPoint(self.canvas)
