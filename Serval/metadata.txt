@@ -1,23 +1,26 @@
 [general]
 name=Serval
-qgisMinimumVersion=2.99
+qgisMinimumVersion=3.10
 qgisMaximumVersion=3.99
-description=Map tool for manipulating raster cell values.
-version=3.0.1
+description=Raster editing tools
+version=3.10.0
 author=Radoslaw Pasiok for Lutra Consulting Ltd.
 email=radek.pasiok@lutraconsulting.co.uk
-
-about=Usage: The tool has 3 modes: probing, drawing and erasing. In the probing mode cell values are read and can be changed manually in a spinbox. In drawing mode, chosen band values are set to a raster cell and immediately written to disk. Erasing is setting a raster cell value to NoData. For 3 bands rasters, native QGIS color picker can be used to define bands values.
-Warning: All changes are immediately written to disk. Always keep backup of your original raster!
-
+about=Raster editing tools - select and apply a modification to a chosen part of a raster. Features setting a constant value (also NoData), an expression (probing other rasters and interpolation on vector and mesh layers) and applying 3x3 low-pass filter. Multiband rasters supported.
 tracker=http://github.com/erpas/serval/issues
 repository=http://github.com/erpas/serval
+
 # End of mandatory metadata
-
 # Recommended items:
-
 # Uncomment the following line and add your changelog:
+
 changelog=
+        3.10.0 New features:
+            * multi-band rasters support
+            * raster cells selection tools
+            * saving/loading selections to/from map layers
+            * QGIS expressions support including interpolation from vector and mesh layers
+            * low-pass 3x3 raster filtering
         3.0.1 Fixed setting working raster in Linux (issue #18)
         3.0 Port to QGIS 3
         0.8.1 Added support for Float64 data type
@@ -32,7 +35,7 @@ changelog=
 
 
 # Tags are comma separated with spaces allowed
-tags=raster, grid, pixel, value, cell, draw, nodata
+tags=raster, band, multiband, grid, pixel, value, cell, draw, nodata, select, selection, filter, expression
 
 homepage=https://github.com/erpas/serval/wiki
 category=Raster

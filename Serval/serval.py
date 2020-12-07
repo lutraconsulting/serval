@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 /***************************************************************************
- serval,  A QGIS plugin
-
-
- Map tools for manipulating raster cell values
+ Serval,  a QGIS plugin for manipulating raster cell values
 
     begin            : 2015-12-30
-    copyright        : (C) 2019 Radosław Pasiok for Lutra Consulting Ltd.
+    copyright        : (C) 2020 Radosław Pasiok for Lutra Consulting Ltd.
     email            : info@lutraconsulting.co.uk
  ***************************************************************************/
 
@@ -21,285 +17,534 @@
  ***************************************************************************/
 """
 
-from builtins import str
-from builtins import range
-from builtins import object
-from collections import defaultdict
 import os.path
+from datetime import datetime, timedelta
 
-from qgis.PyQt.QtCore import QSize, Qt, QUrl, pyqtSignal
+from qgis.PyQt.QtCore import QSize, Qt, QUrl, QVariant, QSettings
 from qgis.PyQt.QtGui import QPixmap, QCursor, QIcon, QColor, QDesktopServices
-from qgis.PyQt.QtWidgets import QAction, QAbstractSpinBox, QInputDialog, QLineEdit
+from qgis.PyQt.QtWidgets import (
+    QAction,
+    QApplication,
+    QComboBox,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+)
 from qgis.core import (
     QgsCoordinateTransform,
     QgsCsException,
+    QgsExpression,
+    QgsFeature,
+    QgsField,
+    QgsGeometry,
+    QgsMapLayerType,
+    QgsMeshDatasetIndex,
     QgsPointXY,
     QgsProject,
-    QgsRasterBlock,
     QgsRaster,
-    QgsRasterDataProvider
+    QgsRasterDataProvider,
+    QgsRectangle,
+    QgsSpatialIndex,
+    QgsVectorLayer,
 )
-from qgis.gui import QgsDoubleSpinBox, QgsMapToolEmitPoint, QgsColorButton
+from qgis.gui import (QgsDoubleSpinBox, QgsMapToolEmitPoint, QgsColorButton, QgsExpressionBuilderDialog, )
 
-from .utils import is_number, icon_path, dtypes
+from .raster_handler import RasterHandler
+from .selection_tool import RasterCellSelectionMapTool
+from .serval_exp_functions import (
+    interpolate_from_mesh,
+    intersecting_features_attr_average,
+    nearest_feature_attr_value,
+    nearest_pt_on_line_interpolate_z,
+)
+from .band_spin_boxes import BandBoxes
+from .layer_select_dlg import LayerSelectDialog
+from .raster_changes import RasterChanges
+from .utils import is_number, icon_path, dtypes, get_logger
 from .user_communication import UserCommunication
 
-try:
-    # QgsMapLayerType added in QGIS 3.8
-    from qgis.core import QgsMapLayerType
-    raster_layer_type = QgsMapLayerType.RasterLayer
-except ImportError:
-    raster_layer_type = 1
+DEBUG = False
 
-
-class BandSpinBox(QgsDoubleSpinBox):
-    """Spinbox class for raster band value"""
-
-    user_hit_enter = pyqtSignal()
-
-    def __init__(self, parent=None):
-        super(BandSpinBox, self).__init__()
-
-    def keyPressEvent(self, event):
-        b = self.property("bandNr")
-        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
-            if is_number(self.text().replace(',','.')):
-                self.setValue(float(self.text().replace(',', '.')))
-                self.user_hit_enter.emit()
-        else:
-            QgsDoubleSpinBox.keyPressEvent(self, event)
-            
 
 class Serval(object):
+
+    LINE_SELECTION = "line"
+    POLYGON_SELECTION = "polygon"
+    RGB = "RGB"
+    SINGLE_BAND = "Single band"
+
     def __init__(self, iface):
         self.iface = iface
         self.canvas = self.iface.mapCanvas()
         self.plugin_dir = os.path.dirname(__file__)
         self.uc = UserCommunication(iface, 'Serval')
-        self.mode = 'probe'
-        self.bands = None
+        self.load_settings()
         self.raster = None
+        self.handler = None
+        self.spin_boxes = None
+        self.exp_dlg = None
+        self.exp_builder = None
+        self.block_pts_layer = None
         self.px, self.py = [0, 0]
         self.last_point = QgsPointXY(0, 0)
-        self.undos = defaultdict(list)
-        self.redos = defaultdict(list)
-        self.qgis_project = QgsProject()
+        self.rbounds = None
+        self.changes = dict()  # dict with rasters changes {raster_id: RasterChanges instance}
+        self.qgis_project = QgsProject.instance()
+        self.all_touched = None
+        self.selection_mode = None
+        self.spatial_index_time = dict()  # {layer_id: creation time}
+        self.spatial_index = dict()  # {layer_id: spatial index}
+        self.selection_layers_count = 1
+        self.debug = DEBUG
+        self.logger = get_logger() if self.debug else None
 
         self.menu = u'Serval'
         self.actions = []
-        self.toolbar = self.iface.addToolBar(u'Serval')
-        self.toolbar.setObjectName(u'Serval')
-        self.toolbar.setToolTip(u'Serval Toolbar')
+        self.toolbar = self.iface.addToolBar(u'Serval Main Toolbar')
+        self.toolbar.setObjectName(u'Serval Main Toolbar')
+        self.toolbar.setToolTip(u'Serval Main Toolbar')
+
+        self.sel_toolbar = self.iface.addToolBar(u'Serval Selection Toolbar')
+        self.sel_toolbar.setObjectName(u'Serval Selection Toolbar')
+        self.sel_toolbar.setToolTip(u'Serval Selection Toolbar')
 
         # Map tools
-        self.probeTool = QgsMapToolEmitPoint(self.canvas)
-        self.probeTool.setObjectName('ServalProbeTool')
-        self.probeTool.setCursor(QCursor(QPixmap(icon_path('probe_tool.svg')), hotX=2, hotY=22))
-        self.probeTool.canvasClicked.connect(self.point_clicked)
-        self.drawTool = QgsMapToolEmitPoint(self.canvas)
-        self.drawTool.setObjectName('ServalDrawTool')
-        self.drawTool.setCursor(QCursor(QPixmap(icon_path('draw_tool.svg')), hotX=2, hotY=22))
-        self.drawTool.canvasClicked.connect(self.point_clicked)
-        self.gomTool = QgsMapToolEmitPoint(self.canvas)
-        self.gomTool.setObjectName('ServalGomTool')
-        self.gomTool.setCursor(QCursor(QPixmap(icon_path('gom_tool.svg')), hotX=5, hotY=19))
-        self.gomTool.canvasClicked.connect(self.point_clicked)
-
-        self.mColorButton = QgsColorButton()
-        icon1 = QIcon(icon_path('mIconColorBox.svg'))
-        self.mColorButton.setIcon(icon1)
-        self.mColorButton.setMinimumSize(QSize(40, 24))
-        self.mColorButton.setMaximumSize(QSize(40, 24))
-        self.mColorButton.colorChanged.connect(self.set_rgb_from_picker)
-
-        self.b1SBox = BandSpinBox()
-        self.b2SBox = BandSpinBox()
-        self.b3SBox = BandSpinBox()
-        self.sboxes = [self.b1SBox, self.b2SBox, self.b3SBox]
-        for sb in self.sboxes:
-            sb.user_hit_enter.connect(self.change_cell_value_key)
+        self.probe_tool = QgsMapToolEmitPoint(self.canvas)
+        self.probe_tool.setObjectName('ServalProbeTool')
+        self.probe_tool.setCursor(QCursor(QPixmap(icon_path('probe_tool.svg')), hotX=2, hotY=22))
+        self.probe_tool.canvasClicked.connect(self.point_clicked)
+        self.draw_tool = QgsMapToolEmitPoint(self.canvas)
+        self.draw_tool.setObjectName('ServalDrawTool')
+        self.draw_tool.setCursor(QCursor(QPixmap(icon_path('draw_tool.svg')), hotX=2, hotY=22))
+        self.draw_tool.canvasClicked.connect(self.point_clicked)
+        self.selection_tool = RasterCellSelectionMapTool(self.iface, self.uc, self.raster, debug=self.debug)
+        self.selection_tool.setObjectName('RasterSelectionTool')
+        self.map_tool_btn = dict()  # {map tool: button activating the tool}
 
         self.iface.currentLayerChanged.connect(self.set_active_raster)
         self.qgis_project.layersAdded.connect(self.set_active_raster)
         self.canvas.mapToolSet.connect(self.check_active_tool)
 
-    def initGui(self):
+        self.register_exp_functions()
 
-        # Menu and toolbar actions
-        self.add_action(
+    def load_settings(self):
+        """Return plugin settings dict - default values are overriden by user prefered values from QSettings."""
+        self.default_settings = {
+            "undo_steps": {"value": 3, "vtype": int},
+        }
+        self.settings = dict()
+        s = QSettings()
+        s.beginGroup("serval")
+        for k, v in self.default_settings.items():
+            user_val = s.value(k, v["value"], v["vtype"])
+            self.settings[k] = user_val
+
+    def edit_settings(self):
+        """Open dialog with plugin settings."""
+        s = QSettings()
+        s.beginGroup("serval")
+        k = "undo_steps"
+        cur_val = self.settings[k]
+        val_type = self.default_settings[k]["vtype"]
+        cur_steps = s.value(k, cur_val, val_type)
+
+        label = 'Nr of Undo/Redo steps:'
+        steps, ok = QInputDialog.getInt(None, "Serval Settings", label, cur_steps)
+        if not ok:
+            return
+        if steps >= 0:
+            s.setValue("undo_steps", steps)
+        self.load_settings()
+        self.uc.show_info("Some new settings may require QGIS restart.")
+
+    def initGui(self):
+        dummy = self.add_action(
             'serval_icon.svg',
-            text=u'Show Serval Toolbar',
+            text=u'Show Serval Toolbars',
             add_to_menu=True,
-            add_to_toolbar=False,
-            callback=self.show_toolbar,
-            parent=self.iface.mainWindow())
+            callback=self.show_toolbar, )
 
         self.probe_btn = self.add_action(
             'probe.svg',
-            text=u'Probing Mode',
-            whats_this=u'Probing Mode',
-            add_to_toolbar=True,
+            text="Probe raster",
             callback=self.activate_probing,
-            parent=self.iface.mainWindow())
+            add_to_toolbar=self.toolbar,
+            checkable=True, )
+        self.map_tool_btn[self.probe_tool] = self.probe_btn
+
+        self.color_btn = QgsColorButton()
+        self.color_btn.setColor(Qt.gray)
+        self.color_btn.setMinimumSize(QSize(40, 24))
+        self.color_btn.setMaximumSize(QSize(40, 24))
+        self.toolbar.addWidget(self.color_btn)
+        self.color_picker_connection(connect=True)
+        self.color_btn.setDisabled(True)
+
+        self.toolbar.addWidget(QLabel("Band:"))
+        self.bands_cbo = QComboBox()
+        self.bands_cbo.addItem("1", 1)
+        self.toolbar.addWidget(self.bands_cbo)
+        self.bands_cbo.currentIndexChanged.connect(self.update_active_bands)
+        self.bands_cbo.setDisabled(True)
+
+        self.spin_boxes = BandBoxes()
+        self.toolbar.addWidget(self.spin_boxes)
+        self.spin_boxes.enter_hit.connect(self.apply_spin_box_values)
 
         self.draw_btn = self.add_action(
             'draw.svg',
-            text=u'Drawing Mode',
-            whats_this=u'Drawing Mode',
-            add_to_toolbar=True,
+            text="Apply Value(s) To Single Cell",
             callback=self.activate_drawing,
-            parent=self.iface.mainWindow())
+            add_to_toolbar=self.toolbar,
+            checkable=True, )
+        self.map_tool_btn[self.draw_tool] = self.draw_btn
+
+        self.apply_spin_box_values_btn = self.add_action(
+            'apply_const_value.svg',
+            text="Apply Value(s) to Selection",
+            callback=self.apply_spin_box_values,
+            add_to_toolbar=self.toolbar, )
 
         self.gom_btn = self.add_action(
-            'gom.svg',
-            text=u'Set Raster Cell Value to NoData',
-            whats_this=u'Set Raster Cell Value to NoData',
-            add_to_toolbar=True,
-            callback=self.activate_gom,
-            parent=self.iface.mainWindow())
+            'apply_nodata_value.svg',
+            text="Apply NoData to Selection",
+            callback=self.apply_nodata_value,
+            add_to_toolbar=self.toolbar, )
 
-        self.checkable_tool_btns = [self.draw_btn, self.probe_btn, self.gom_btn]
+        self.exp_dlg_btn = self.add_action(
+            'apply_expression_value.svg',
+            text="Apply Expression Value To Selection",
+            callback=self.define_expression,
+            add_to_toolbar=self.toolbar,
+            checkable=False, )
 
-        self.def_nodata_btn = self.add_action(
-            'define_nodata.svg',
-            text=u'Define/Change Raster NoData Value',
-            whats_this=u'Define/Change Raster NoData Value',
-            add_to_toolbar=True,
-            callback=self.define_nodata,
-            parent=self.iface.mainWindow())
+        self.low_pass_filter_btn = self.add_action(
+            'apply_low_pass_filter.svg',
+            text="Apply Low-Pass 3x3 Filter To Selection",
+            callback=self.apply_low_pass_filter,
+            add_to_toolbar=self.toolbar,
+            checkable=False, )
 
-        self.toolbar.addWidget(self.mColorButton)
-
-        self.setup_spin_boxes()
+        self.set_nodata_btn = self.add_action(
+            'set_nodata.svg',
+            text="Edit Raster NoData Values",
+            callback=self.set_nodata,
+            add_to_toolbar=self.toolbar, )
 
         self.undo_btn = self.add_action(
             'undo.svg',
-            text=u'Undo',
-            whats_this=u'Undo',
-            add_to_toolbar=True,
+            text="Undo",
             callback=self.undo,
-            parent=self.iface.mainWindow())
+            add_to_toolbar=self.toolbar, )
 
         self.redo_btn = self.add_action(
             'redo.svg',
-            text=u'Redo',
-            whats_this=u'Redo',
-            add_to_toolbar=True,
+            text="Redo",
             callback=self.redo,
-            parent=self.iface.mainWindow())
+            add_to_toolbar=self.toolbar, )
+
+        self.settings_btn = self.add_action(
+            'edit_settings.svg',
+            text="Serval Settings",
+            callback=self.edit_settings,
+            add_to_toolbar=self.toolbar, )
 
         self.show_help = self.add_action(
             'help.svg',
-            text=u'Help',
-            whats_this=u'Help',
-            add_to_toolbar=True,
+            text="Help",
             add_to_menu=True,
             callback=self.show_website,
-            parent=self.iface.mainWindow())
+            add_to_toolbar=self.toolbar, )
 
-        self.set_active_raster()
+        # Selection Toolbar
+
+        line_width_icon = QIcon(icon_path("line_width.svg"))
+        line_width_lab = QLabel()
+        line_width_lab.setPixmap(line_width_icon.pixmap(22, 12))
+        self.sel_toolbar.addWidget(line_width_lab)
+
+        self.line_width_sbox = QgsDoubleSpinBox()
+        self.line_width_sbox.setMinimumSize(QSize(50, 24))
+        self.line_width_sbox.setMaximumSize(QSize(50, 24))
+        # self.line_width_sbox.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.line_width_sbox.setValue(1)
+        self.line_width_sbox.setMinimum(0.01)
+        self.line_width_sbox.setShowClearButton(False)
+        self.line_width_sbox.setToolTip("Selection Line Width")
+        self.line_width_sbox.valueChanged.connect(self.update_selection_tool)
+
+        self.width_unit_cbo = QComboBox()
+        self.width_units = ("map units", "pixel width", "pixel height", "hairline",)
+        for u in self.width_units:
+            self.width_unit_cbo.addItem(u)
+        self.width_unit_cbo.setToolTip("Selection Line Width Unit")
+        self.sel_toolbar.addWidget(self.line_width_sbox)
+        self.sel_toolbar.addWidget(self.width_unit_cbo)
+        self.width_unit_cbo.currentIndexChanged.connect(self.update_selection_tool)
+
+        self.line_select_btn = self.add_action(
+            'select_line.svg',
+            text="Select Raster Cells by Line",
+            callback=self.activate_line_selection,
+            add_to_toolbar=self.sel_toolbar,
+            checkable=True, )
+
+        self.polygon_select_btn = self.add_action(
+            'select_polygon.svg',
+            text="Select Raster Cells by Polygon",
+            callback=self.activate_polygon_selection,
+            add_to_toolbar=self.sel_toolbar,
+            checkable=True, )
+
+        self.selection_from_layer_btn = self.add_action(
+            'select_from_layer.svg',
+            text="Create Selection From Layer",
+            callback=self.selection_from_layer,
+            add_to_toolbar=self.sel_toolbar, )
+
+        self.selection_to_layer_btn = self.add_action(
+            'selection_to_layer.svg',
+            text="Create Memory Layer From Selection",
+            callback=self.selection_to_layer,
+            add_to_toolbar=self.sel_toolbar, )
+
+        self.clear_selection_btn = self.add_action(
+            'clear_selection.svg',
+            text="Clear selection",
+            callback=self.clear_selection,
+            add_to_toolbar=self.sel_toolbar, )
+
+        self.toggle_all_touched_btn = self.add_action(
+            'all_touched.svg',
+            text="Toggle All Touched Get Selected",
+            callback=self.toggle_all_touched,
+            checkable=True, checked=True,
+            add_to_toolbar=self.sel_toolbar, )
+        self.all_touched = True
+
+        self.enable_toolbar_actions(enable=False)
         self.check_undo_redo_btns()
 
-    def add_action(
-        self,
-        icon_name,
-        text,
-        callback,
-        enabled_flag=True,
-        add_to_menu=False,
-        add_to_toolbar=True,
-        status_tip=None,
-        whats_this=None,
-        parent=None):
+    def add_action(self, icon_name, callback=None, text="", enabled_flag=True, add_to_menu=False, add_to_toolbar=None,
+                   status_tip=None, whats_this=None, checkable=False, checked=False):
             
         icon = QIcon(icon_path(icon_name))
-        action = QAction(icon, text, parent)
+        action = QAction(icon, text, self.iface.mainWindow())
         action.triggered.connect(callback)
         action.setEnabled(enabled_flag)
+        action.setCheckable(checkable)
+        action.setChecked(checked)
 
         if status_tip is not None:
             action.setStatusTip(status_tip)
-
         if whats_this is not None:
             action.setWhatsThis(whats_this)
-
-        if add_to_toolbar:
-            self.toolbar.addAction(action)
-
+        if add_to_toolbar is not None:
+            add_to_toolbar.addAction(action)
         if add_to_menu:
-            self.iface.addPluginToMenu(
-                self.menu,
-                action)
+            self.iface.addPluginToMenu(self.menu, action)
 
         self.actions.append(action)
         return action
 
     def unload(self):
-        self.iface.actionPan().trigger()
-
+        self.changes = None
+        if self.selection_tool:
+            self.selection_tool.reset()
+        if self.spin_boxes is not None:
+            self.spin_boxes.remove_spinboxes()
         for action in self.actions:
-            self.iface.removePluginMenu(
-                u'Serval',
-                action)
+            self.iface.removePluginMenu('Serval', action)
             self.iface.removeToolBarIcon(action)
-
         del self.toolbar
+        del self.sel_toolbar
+        self.iface.actionPan().trigger()
+        self.unregister_exp_functions()
 
     def show_toolbar(self):
         if self.toolbar:
             self.toolbar.show()
+            self.sel_toolbar.show()
 
-    def check_active_tool(self, tool):
-        try:
-            if not tool.objectName() in ['ServalDrawTool', 'ServalProbeTool', 'ServalGomTool']:
-                self.probe_btn.setChecked(False)
-                self.draw_btn.setChecked(False)
-                self.gom_btn.setChecked(False)
-        except AttributeError:
-            pass
+    @staticmethod
+    def register_exp_functions():
+        QgsExpression.registerFunction(nearest_feature_attr_value)
+        QgsExpression.registerFunction(nearest_pt_on_line_interpolate_z)
+        QgsExpression.registerFunction(intersecting_features_attr_average)
+        QgsExpression.registerFunction(interpolate_from_mesh)
 
-    def set_checked_tool_btn(self, cur_tool_btn):
-        for btn in self.checkable_tool_btns:
-            if btn == cur_tool_btn:
-                btn.setChecked(True)
+    @staticmethod
+    def unregister_exp_functions():
+        QgsExpression.unregisterFunction('nearest_feature_attr_value')
+        QgsExpression.unregisterFunction('nearest_pt_on_line_interpolate_z')
+        QgsExpression.unregisterFunction('intersecting_features_attr_average')
+        QgsExpression.unregisterFunction('interpolate_from_mesh')
+
+    def uncheck_all_btns(self):
+        self.probe_btn.setChecked(False)
+        self.draw_btn.setChecked(False)
+        self.gom_btn.setChecked(False)
+        self.line_select_btn.setChecked(False)
+        self.polygon_select_btn.setChecked(False)
+
+    def check_active_tool(self, cur_tool):
+        self.uncheck_all_btns()
+        if cur_tool in self.map_tool_btn:
+            self.map_tool_btn[cur_tool].setChecked(True)
+        if cur_tool == self.selection_tool:
+            if self.selection_mode == self.LINE_SELECTION:
+                self.line_select_btn.setChecked(True)
             else:
-                btn.setChecked(False)
+                self.polygon_select_btn.setChecked(True)
 
     def activate_probing(self):
         self.mode = 'probe'
-        self.canvas.setMapTool(self.probeTool)
-        self.set_checked_tool_btn(self.probe_btn)
+        self.canvas.setMapTool(self.probe_tool)
+
+    def define_expression(self):
+        if not self.selection_tool.selected_geometries:
+            self.uc.bar_warn("No selection for raster layer. Select some cells and retry...")
+            return
+        self.handler.select(self.selection_tool.selected_geometries, all_touched_cells=self.all_touched)
+        self.handler.create_cell_pts_layer()
+        if self.handler.cell_pts_layer.featureCount() == 0:
+            self.uc.bar_warn("No selection for raster layer. Select some cells and retry...")
+            return
+        self.exp_dlg = QgsExpressionBuilderDialog(self.handler.cell_pts_layer)
+        self.exp_builder = self.exp_dlg.expressionBuilder()
+        self.exp_dlg.accepted.connect(self.apply_exp_value)
+        self.exp_dlg.show()
+
+    def apply_exp_value(self):
+        if not self.exp_dlg.expressionText() or not self.exp_builder.isExpressionValid():
+            return
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        exp = self.exp_dlg.expressionText()
+        idx = self.handler.cell_pts_layer.addExpressionField(exp, QgsField('exp_val', QVariant.Double))
+        self.handler.exp_field_idx = idx
+        self.handler.write_block()
+        QApplication.restoreOverrideCursor()
+        self.raster.triggerRepaint()
 
     def activate_drawing(self):
         self.mode = 'draw'
-        self.canvas.setMapTool(self.drawTool)
-        self.set_checked_tool_btn(self.draw_btn)
+        self.canvas.setMapTool(self.draw_tool)
 
-    def activate_gom(self):
-        self.mode = 'gom'
-        self.canvas.setMapTool(self.gomTool)
-        self.set_checked_tool_btn(self.gom_btn)
+    def get_cur_line_width(self):
+        width_coef = {
+            "map units": 1.,
+            "pixel width": self.raster.rasterUnitsPerPixelX(),
+            "pixel height": self.raster.rasterUnitsPerPixelY(),
+            "hairline": 0.000001,
+        }
+        return self.line_width_sbox.value() * width_coef[self.width_unit_cbo.currentText()]
 
-    def setup_spin_boxes(self):
+    def set_selection_tool(self, mode):
+        if self.raster is None:
+            self.uc.bar_warn("Select a raster layer")
+            return
+        self.selection_mode = mode
+        self.selection_tool.init_tool(self.raster, mode=self.selection_mode, line_width=self.get_cur_line_width())
+        self.selection_tool.set_prev_tool(self.canvas.mapTool())
+        self.canvas.setMapTool(self.selection_tool)
 
-        for sbox in self.sboxes:
-            sbox.setMinimumSize(QSize(60, 25))
-            sbox.setMaximumSize(QSize(60, 25))
-            sbox.setAlignment(Qt.AlignLeft)
-            sbox.setButtonSymbols(QAbstractSpinBox.NoButtons)
-            sbox.setKeyboardTracking(False)
-            sbox.setShowClearButton(False)
-            sbox.setExpressionsEnabled(False)
-            sbox.setStyleSheet("")
-            self.toolbar.addWidget(sbox)
+    def activate_line_selection(self):
+        self.set_selection_tool(self.LINE_SELECTION)
+
+    def activate_polygon_selection(self):
+        self.set_selection_tool(self.POLYGON_SELECTION)
+
+    def update_selection_tool(self):
+        """Reactivate the selection tool with updated line width and units."""
+        if self.selection_mode == self.LINE_SELECTION:
+            self.activate_line_selection()
+        elif self.selection_mode == self.POLYGON_SELECTION:
+            self.activate_polygon_selection()
+        else:
+            pass
+
+    def apply_values(self, new_values):
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.handler.select(self.selection_tool.selected_geometries, all_touched_cells=self.all_touched)
+        self.handler.write_block(new_values)
+        QApplication.restoreOverrideCursor()
+        self.raster.triggerRepaint()
+
+    def apply_values_single_cell(self, new_vals):
+        """Create single cell selection and apply the new values."""
+        cpt = self.last_point
+        col, row = self.handler.point_to_index([cpt.x(), cpt.y()])
+        px, py = self.handler.index_to_point(row, col, upper_left=False)
+        d = 0.001
+        bbox = QgsRectangle(px - d, py - d, px + d, py + d)
+        if self.logger:
+            self.logger.debug(f"Changing single cell in {bbox}")
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.handler.select([QgsGeometry.fromRect(bbox)], all_touched_cells=False)
+        self.handler.write_block(new_vals)
+        QApplication.restoreOverrideCursor()
+        self.raster.triggerRepaint()
+
+    def apply_spin_box_values(self):
+        if not self.selection_tool.selected_geometries:
+            return
+        self.apply_values(self.spin_boxes.get_values())
+
+    def apply_nodata_value(self):
+        if not self.selection_tool.selected_geometries:
+            return
+        self.apply_values(self.handler.nodata_values)
+
+    def apply_low_pass_filter(self):
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.handler.select(self.selection_tool.selected_geometries, all_touched_cells=self.all_touched)
+        self.handler.write_block(low_pass_filter=True)
+        QApplication.restoreOverrideCursor()
+        self.raster.triggerRepaint()
+
+    def clear_selection(self):
+        if self.selection_tool:
+            self.selection_tool.clear_all_selections()
+
+    def selection_from_layer(self):
+        """Create a new selection from layer."""
+        self.selection_tool.init_tool(self.raster, mode=self.POLYGON_SELECTION, line_width=self.get_cur_line_width())
+        dlg = LayerSelectDialog()
+        if not dlg.exec_():
+            return
+        cur_layer = dlg.cbo.currentLayer()
+        if not cur_layer.type() == QgsMapLayerType.VectorLayer:
+            return
+        self.selection_tool.selection_from_layer(cur_layer)
+
+    def selection_to_layer(self):
+        """Create a memory layer from current selection"""
+        geoms = self.selection_tool.selected_geometries
+        if geoms is None or not self.raster:
+            return
+        crs_str = self.raster.crs().toProj()
+        nr = self.selection_layers_count
+        self.selection_layers_count += 1
+        mlayer = QgsVectorLayer(f"Polygon?crs={crs_str}&field=fid:int", f"Raster selection {nr}", "memory")
+        fields = mlayer.dataProvider().fields()
+        features = []
+        for i, geom in enumerate(geoms):
+            feat = QgsFeature(fields)
+            feat["fid"] = i + 1
+            feat.setGeometry(geom)
+            features.append(feat)
+        mlayer.dataProvider().addFeatures(features)
+        self.qgis_project.addMapLayer(mlayer)
+
+    def toggle_all_touched(self):
+        """Toggle selection mode."""
+        # button is toggled automatically when clicked, just update the attribute
+        self.all_touched = self.toggle_all_touched_btn.isChecked()
 
     def point_clicked(self, point=None, button=None):
-        # check if active layer is raster
         if self.raster is None:
             self.uc.bar_warn("Choose a raster to work with...", dur=3)
             return
-        
-        # check if coordinates trasformation is required
         canvas_srs = self.iface.mapCanvas().mapSettings().destinationCrs()
         if point is None:
             pos = self.last_point
@@ -309,322 +554,273 @@ class Serval(object):
             try:
                 pos = srs_transform.transform(point)
             except QgsCsException as err:
-                self.uc.bar_warn(
-                    "Point coordinates transformation failed! Check the raster projection:\n\n{}".format(repr(err)),
-                    dur=5)
+                self.uc.show_warn(
+                    "Point coordinates transformation failed! Check the raster projection:\n\n{}".format(repr(err)))
                 return
         else:
             pos = QgsPointXY(point.x(), point.y())
-        
-        # keep last clicked point
         self.last_point = pos
-        
-        # check if the point is within active raster bounds
-        if self.rbounds[0] <= pos.x() <= self.rbounds[2]:
-            self.px = int((pos.x() - self.rbounds[0]) / self.raster.rasterUnitsPerPixelX())  # - self.gt[0]) / self.gt[1])
-        else:
-            self.uc.bar_info("Out of x bounds", dur=2)
+        ident_vals = self.handler.provider.identify(pos, QgsRaster.IdentifyFormatValue).results()
+        cur_vals = list(ident_vals.values())
+
+        # check if the point is within active raster extent
+        if not self.rbounds[0] <= pos.x() <= self.rbounds[2]:
+            self.uc.bar_info("Out of x bounds", dur=3)
+            return
+        if not self.rbounds[1] <= pos.y() <= self.rbounds[3]:
+            self.uc.bar_info("Out of y bounds", dur=3)
             return
 
-        if self.rbounds[1] <= pos.y() <= self.rbounds[3]:
-            self.py = int((self.rbounds[3] - pos.y()) / self.raster.rasterUnitsPerPixelY()) #  - self.gt[3]) / self.gt[5])
+        if self.mode == 'draw':
+            new_vals = self.spin_boxes.get_values()
+            self.apply_values_single_cell(new_vals)
         else:
-            self.uc.bar_info("Out of y bounds", dur=2)
-            return
+            self.spin_boxes.set_values(cur_vals)
+            if 2 < self.handler.bands_nr < 5:
+                self.color_picker_connection(connect=False)
+                self.color_btn.setColor(QColor(*self.spin_boxes.get_values()[:4]))
+                self.color_picker_connection(connect=True)
 
-        # probe current raster value, dict: band_nr -> value
-        vals = self.rdp.identify(pos, QgsRaster.IdentifyFormatValue).results()
-
-        # for rasters having more that 3 bands, ignore other than 1-3
-        bands_to_ignore = [i for i in vals.keys() if i > 3]
-        for band_nr in bands_to_ignore:
-            del vals[band_nr]
-
-        # data types for each band
-        dtypes = []
-
-        for nr in range(1, min(4, self.band_count + 1)):
-            # bands data type
-            dtypes.append(self.bands[nr]['qtype'])
-            
-            # check if nodata is defined
-            if self.mode == 'gom' and self.bands[nr]['nodata'] is None:
-                msg = 'NODATA value is not defined for one of the raster\'s bands.\n'
-                msg += 'Please define it in raster properties dialog!'
-                self.uc.show_warn(msg)
-                return
-            
-            # if in probing mode, set band's spinbox value
-            if self.mode == 'probe':
-                val = vals[nr] if is_number(vals[nr]) else self.bands[nr]['nodata']
-                self.bands[nr]['sbox'].setValue(val)
-                self.bands[nr]['sbox'].setFocus()
-                self.bands[nr]['sbox'].selectAll()
-
-        if not self.mode == 'probe':
-
-            old_vals = [v if v is not None else self.bands[k]['nodata'] for k, v in sorted(vals.items())]
-            if self.mode == 'gom':
-                temp_vals = [self.bands[nr]['nodata'] for nr in sorted(vals.keys())]
-                new_vals = [int(v) if dtypes[i] < 6 else float(v) for i, v in enumerate(temp_vals)]
-            else:
-                temp_vals = [self.bands[nr]['sbox'].value() for nr in sorted(vals.keys())]
-                new_vals = [int(v) if dtypes[i] < 6 else float(v) for i, v in enumerate(temp_vals)]
-
-            # store all bands' changes to undo list
-            self.undos[self.raster.id()].append([old_vals, new_vals, self.px, self.py, pos])
-
-            # write the new cell value(s)
-            self.change_cell_value(new_vals)
-
-        if self.band_count > 2:
-            self.mColorButton.setColor(QColor(
-                self.bands[1]['sbox'].value(),
-                self.bands[2]['sbox'].value(),
-                self.bands[3]['sbox'].value()
-            ))
-
-    def set_rgb_from_picker(self, c):
+    def set_values_from_picker(self, c):
         """Set bands spinboxes values after color change in the color picker"""
-        self.bands[1]['sbox'].setValue(c.red())
-        self.bands[2]['sbox'].setValue(c.green())
-        self.bands[3]['sbox'].setValue(c.blue())
+        values = None
+        if self.handler.bands_nr > 2:
+            values = [c.red(), c.green(), c.blue()]
+            if self.handler.bands_nr == 4:
+                values.append(c.alpha())
+        if values:
+            self.spin_boxes.set_values(values)
 
-    def change_cell_value(self, vals, x=None, y=None):
-        """Save new bands values to data provider"""
-
-        if not self.rdp.isEditable():
-            success = self.rdp.setEditable(True)
-            if not success:
-                self.uc.show_warn('QGIS can\'t modify this type of raster')
-                return
-
-        if not x:
-            x = self.px
-            y = self.py
-
-        for nr in range(1, min(4, self.band_count + 1)):
-            rblock = QgsRasterBlock(self.bands[nr]['qtype'], 1, 1)
-            rblock.setValue(0, 0, vals[nr - 1])
-            success = self.rdp.writeBlock(rblock, nr, x, y)
-            if not success:
-                self.uc.show_warn('QGIS can\'t modify this type of raster')
-                return
-
-        self.rdp.setEditable(False)
-        self.raster.triggerRepaint()
-
-        # prepare raster for next actions
-        self.prepare_raster(True)
-        self.check_undo_redo_btns()
-
-    def change_cell_value_key(self):
-        """Change cell value after user changes band's spinbox value and hits Enter key"""
-        if self.last_point:
-            pm = self.mode
-            self.mode = 'draw'
-            self.point_clicked()
-            self.mode = pm
-        
-    def undo(self):
-        if self.undos[self.raster.id()]:
-            data = self.undos[self.raster.id()].pop()
-            self.redos[self.raster.id()].append(data)
-        else:
-            return
-        self.change_cell_value(data[0], data[2], data[3])
-
-    def redo(self):
-        if self.redos[self.raster.id()]:
-            data = self.redos[self.raster.id()].pop()
-            self.undos[self.raster.id()].append(data)
-        else:
-            return
-        self.change_cell_value(data[1], data[2], data[3])
-
-    def define_nodata(self):
-        """Define and write a new NoData value to raster file"""
+    def set_nodata(self):
+        """Set NoData value(s) for each band of current raster."""
         if not self.raster:
             self.uc.bar_warn('Select a raster layer to define/change NoData value!')
             return
-        
-        # check if user defined additional NODATA value
-        if self.rdp.userNoDataValues(1):
+        if self.handler.provider.userNoDataValues(1):
             note = '\nNote: there is a user defined NODATA value.\nCheck the raster properties (Transparency).'
         else:
             note = ''
-        # first band data type
-        dt = self.rdp.dataType(1)
+        dt = self.handler.provider.dataType(1)
         
         # current NODATA value
-        if self.rdp.sourceHasNoDataValue(1):
-            cur_nodata = self.rdp.sourceNoDataValue(1)
+        if self.handler.provider.sourceHasNoDataValue(1):
+            cur_nodata = self.handler.provider.sourceNoDataValue(1)
             if dt < 6:
                 cur_nodata = '{0:d}'.format(int(float(cur_nodata)))
         else:
             cur_nodata = ''
         
         label = 'Define/change raster NODATA value.\n\n'
-        label += 'Raster data type: {}.{}'.format(dtypes[dt]['name'], note)
-        nd, ok = QInputDialog.getText(None, "Define NODATA Value",
-            label, QLineEdit.Normal, str(cur_nodata))
+        label += 'Raster src_data type: {}.{}'.format(dtypes[dt]['name'], note)
+        nd, ok = QInputDialog.getText(None, "Define NODATA Value", label, QLineEdit.Normal, str(cur_nodata))
         if not ok:
             return
-        
         if not is_number(nd):
             self.uc.show_warn('Wrong NODATA value!')
             return
-        
         new_nodata = int(nd) if dt < 6 else float(nd)
         
         # set the NODATA value for each band
         res = []
-        for nr in range(1, min(4, self.band_count + 1)):
-            res.append(self.rdp.setNoDataValue(nr, new_nodata))
-            self.rdp.sourceHasNoDataValue(nr)
+        for nr in self.handler.bands_range:
+            res.append(self.handler.provider.setNoDataValue(nr, new_nodata))
+            self.handler.provider.sourceHasNoDataValue(nr)
         
         if False in res:
             self.uc.show_warn('Setting new NODATA value failed!')
         else:
-            self.uc.bar_info('Succesful setting new NODATA values!', dur=2)
+            self.uc.bar_info('Successful setting new NODATA values!', dur=2)
 
-        self.prepare_raster()
+        self.set_active_raster()
         self.raster.triggerRepaint()
         
     def check_undo_redo_btns(self):
-        """Enable/Disable undo and redo buttons based on availability of undo/redo steps"""
-        try:
-            if len(self.undos[self.raster.id()]) == 0:
-                self.undo_btn.setDisabled(True)
-            else:
-                self.undo_btn.setEnabled(True)
-        except:
-            self.undo_btn.setDisabled(True)
-             
-        try:
-            if len(self.redos[self.raster.id()]) == 0:
-                self.redo_btn.setDisabled(True)
-            else:
-                self.redo_btn.setEnabled(True)
-        except:
-            self.redo_btn.setDisabled(True)
+        """Enable/Disable undo and redo buttons based on availability of undo/redo for current raster."""
+        self.undo_btn.setDisabled(True)
+        self.redo_btn.setDisabled(True)
+        if self.raster is None or self.raster.id() not in self.changes:
+            return
+        changes = self.changes[self.raster.id()]
+        if changes.nr_undos() > 0:
+            self.undo_btn.setEnabled(True)
+        if changes.nr_redos() > 0:
+            self.redo_btn.setEnabled(True)
 
-    def disable_toolbar_actions(self):
-        # disable all toolbar actions but Help (for vectors and unsupported rasters)
-        for action in self.actions:
-            action.setDisabled(True)
+    def enable_toolbar_actions(self, enable=True):
+        """Enable / disable all toolbar actions but Help (for vectors and unsupported rasters)"""
+        for widget in self.actions + [self.width_unit_cbo, self.line_width_sbox]:
+            widget.setEnabled(enable)
+        self.spin_boxes.enable(enable)
+        self.settings_btn.setEnabled(True)
         self.show_help.setEnabled(True)
     
-    def check_layer(self, layer):
+    @staticmethod
+    def check_layer(layer):
         """Check if we can work with the raster"""
-        if layer == None \
-                or not layer.isValid() \
-                or not layer.type() == raster_layer_type \
-                or not (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create) \
-                or layer.crs() is None:
+        if layer is not None and layer.type() > 1:
             return False
-        else:
+        if layer is not None and all([
+            layer.isValid(),
+            layer.type() != QgsMapLayerType.MeshLayer,
+            layer.type() == QgsMapLayerType.RasterLayer,
+            (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create),
+            layer.crs() is not None]
+        ):
             return True
+        else:
+            return False
+
+    def set_bands_cbo(self):
+        self.bands_cbo.currentIndexChanged.disconnect(self.update_active_bands)
+        self.bands_cbo.clear()
+        for band in self.handler.bands_range:
+            self.bands_cbo.addItem(f"{band}", [band])
+        if self.handler.bands_nr > 1:
+            self.bands_cbo.addItem(self.RGB, [1, 2, 3])
+        self.bands_cbo.setCurrentIndex(0)
+        self.bands_cbo.currentIndexChanged.connect(self.update_active_bands)
+
+    def update_active_bands(self, idx):
+        bands = self.bands_cbo.currentData()
+        self.handler.active_bands = bands
+        self.spin_boxes.create_spinboxes(bands, self.handler.data_types, self.handler.nodata_values)
+        self.color_btn.setEnabled(len(bands) > 1)
+        self.exp_dlg_btn.setEnabled(len(bands) == 1)
 
     def set_active_raster(self):
-        """Active layer has change - check if it is a raster layer and prepare it for the plugin"""
-
-        if self.bands:
-            self.bands = None
-
-        for sbox in self.sboxes:
-            sbox.setValue(0)
-
+        """Active layer has changed - check if it is a raster layer and prepare it for the plugin"""
+        old_spin_boxes_values = self.spin_boxes.get_values()
         layer = self.iface.activeLayer()
-
         if self.check_layer(layer):
             self.raster = layer
-            self.rdp = layer.dataProvider()
-            self.band_count = layer.bandCount()
-            
-            # is data type supported?
-            supported = True
-            for nr in range(1, min(4, self.band_count + 1)):
-                if self.rdp.dataType(nr) == 0 or self.rdp.dataType(nr) > 7:
-                    t = dtypes[self.rdp.dataType(nr)]['name']
-                    supported = False
-                
+            canvas_srs = self.iface.mapCanvas().mapSettings().destinationCrs()
+            self.handler = RasterHandler(self.raster, canvas_srs, self.uc, self.debug)
+            supported, unsupported_type = self.handler.write_supported()
             if supported:
-                # enable all toolbar actions
-                for action in self.actions:
-                    action.setEnabled(True)
-                # if raster properties change, get them (refeshes view)
-                self.raster.rendererChanged.connect(self.prepare_raster)
-
-                self.prepare_raster(supported)
-
-            # not supported data type
+                self.enable_toolbar_actions()
+                self.set_bands_cbo()
+                self.spin_boxes.create_spinboxes(self.handler.active_bands,
+                                                 self.handler.data_types, self.handler.nodata_values)
+                if self.handler.bands_nr == len(old_spin_boxes_values):
+                    self.spin_boxes.set_values(old_spin_boxes_values)
+                self.bands_cbo.setEnabled(self.handler.bands_nr > 1)
+                self.rbounds = self.raster.extent().toRectF().getCoords()
+                self.handler.raster_changed.connect(self.add_to_undo)
+                if self.raster.id() not in self.changes:
+                    self.changes[self.raster.id()] = RasterChanges(nr_to_keep=self.settings["undo_steps"])
             else:
-                msg = 'The raster data type is: {}.'.format(t)
-                msg += '\nServal can\'t work with it, sorry!'
+                msg = f"The raster has unsupported src_data type: {unsupported_type}"
+                msg += "\nServal can't work with it, sorry..."
                 self.uc.show_warn(msg)
+                self.enable_toolbar_actions(enable=False)
                 self.reset_raster()
         
-        # it is not a supported raster layer
         else:
+            # unsupported raster
+            self.enable_toolbar_actions(enable=False)
             self.reset_raster()
 
         self.check_undo_redo_btns()
 
+    def add_to_undo(self, change):
+        """Add the old and new blocks to undo stack."""
+        self.changes[self.raster.id()].add_change(change)
+        self.check_undo_redo_btns()
+        if self.logger:
+            self.logger.debug(self.get_undo_redo_values())
+
+    def get_undo_redo_values(self):
+        changes = self.changes[self.raster.id()]
+        return f"nr undos: {changes.nr_undos()}, redos: {changes.nr_redos()}"
+
+    def undo(self):
+        undo_data = self.changes[self.raster.id()].undo()
+        self.handler.write_block_undo(undo_data)
+        self.raster.triggerRepaint()
+        self.check_undo_redo_btns()
+
+    def redo(self):
+        redo_data = self.changes[self.raster.id()].redo()
+        self.handler.write_block_undo(redo_data)
+        self.raster.triggerRepaint()
+        self.check_undo_redo_btns()
+
     def reset_raster(self):
         self.raster = None
-        self.mColorButton.setDisabled(True)
-        self.prepare_raster(False)
+        self.color_btn.setDisabled(True)
 
-    def prepare_raster(self, supported=True):
-        """Open raster using GDAL if it is supported"""
-
-        # reset bands' spin boxes
-        for i, sbox in enumerate(self.sboxes):
-            sbox.setProperty('bandNr', i + 1)
-            sbox.setDisabled(True)
-            
-        if not supported:
-            return
-
-        if self.band_count > 2:
-            self.mColorButton.setEnabled(True)
+    def color_picker_connection(self, connect=True):
+        if connect:
+            self.color_btn.colorChanged.connect(self.set_values_from_picker)
         else:
-            self.mColorButton.setDisabled(True)
-
-        extent = self.raster.extent()
-        self.rbounds = extent.toRectF().getCoords()
-
-        self.bands = {}
-        for nr in range(1, min(4, self.band_count + 1)):
-            self.bands[nr] = {}
-            self.bands[nr]['sbox'] = self.sboxes[nr - 1]
-
-            # NODATA
-            if self.rdp.sourceHasNoDataValue(nr): # source nodata value?
-                self.bands[nr]['nodata'] = self.rdp.sourceNoDataValue(nr)
-                # use the src nodata
-                self.rdp.setUseSourceNoDataValue(nr, True)
-            # no nodata defined in the raster source
-            else:
-                # check if user defined any nodata values
-                if self.rdp.userNoDataValues(nr):
-                    # get min nodata value from the first user nodata range
-                    nd_ranges = self.rdp.userNoDataValues(nr)
-                    self.bands[nr]['nodata'] = nd_ranges[0].min()
-                else:
-                    # leave nodata undefined
-                    self.bands[nr]['nodata'] = None
-
-            # enable band's spin box
-            self.bands[nr]['sbox'].setEnabled(True)
-            # get bands data type
-            dt = self.bands[nr]['qtype'] = self.rdp.dataType(nr)
-            # set spin boxes properties
-            self.bands[nr]['sbox'].setMinimum(dtypes[dt]['min'])
-            self.bands[nr]['sbox'].setMaximum(dtypes[dt]['max'])
-            self.bands[nr]['sbox'].setDecimals(dtypes[dt]['dig'])
+            self.color_btn.colorChanged.disconnect(self.set_values_from_picker)
 
     @staticmethod
     def show_website():
         QDesktopServices.openUrl(QUrl('https://github.com/erpas/serval/wiki'))
+
+    def recreate_spatial_index(self, layer):
+        """Check if spatial index exists for the layer and if it is relatively old and eventually recreate it."""
+        ctime = self.spatial_index_time[layer.id()] if layer.id() in self.spatial_index_time else None
+        if ctime is None or datetime.now() - ctime > timedelta(seconds=30):
+            self.spatial_index = QgsSpatialIndex(layer.getFeatures(), None, QgsSpatialIndex.FlagStoreFeatureGeometries)
+            self.spatial_index_time[layer.id()] = datetime.now()
+
+    def get_nearest_feature(self, pt_feat, vlayer_id):
+        """Given the point feature, return nearest feature from vlayer."""
+        vlayer = self.qgis_project.mapLayer(vlayer_id)
+        self.recreate_spatial_index(vlayer)
+        ptxy = pt_feat.geometry().asPoint()
+        near_fid = self.spatial_index.nearestNeighbor(ptxy)[0]
+        return vlayer.getFeature(near_fid)
+
+    def nearest_feature_attr_value(self, pt_feat, vlayer_id, attr_name):
+        """Find nearest feature to pt_feat and return its attr_name attribute value."""
+        near_feat = self.get_nearest_feature(pt_feat, vlayer_id)
+        return near_feat[attr_name]
+
+    def nearest_pt_on_line_interpolate_z(self, pt_feat, vlayer_id):
+        """Find nearest line feature to pt_feat and interpolate z value from vertices."""
+        near_feat = self.get_nearest_feature(pt_feat, vlayer_id)
+        near_geom = near_feat.geometry()
+        closest_pt_dist = near_geom.lineLocatePoint(pt_feat.geometry())
+        closest_pt = near_geom.interpolate(closest_pt_dist)
+        return closest_pt.get().z()
+
+    def intersecting_features_attr_average(self, pt_feat, vlayer_id, attr_name, only_center):
+        """
+        Find all features intersecting current feature (cell center, or raster cell polygon) and calculate average
+        value of their attr_name attribute.
+        """
+        vlayer = self.qgis_project.mapLayer(vlayer_id)
+        self.recreate_spatial_index(vlayer)
+        ptxy = pt_feat.geometry().asPoint()
+        pt_x, pt_y = ptxy.x(), ptxy.y()
+        dxy = 0.001
+        half_pix_x = self.handler.pixel_size_x / 2.
+        half_pix_y = self.handler.pixel_size_y / 2.
+        if only_center:
+            cell = QgsRectangle(pt_x, pt_y, pt_x + dxy, pt_y + dxy)
+        else:
+            cell = QgsRectangle(pt_x - half_pix_x, pt_y - half_pix_y,
+                                pt_x + half_pix_x, pt_y + half_pix_y)
+        inter_fids = self.spatial_index.intersects(cell)
+        values = []
+        for fid in inter_fids:
+            feat = vlayer.getFeature(fid)
+            if not feat.geometry().intersects(cell):
+                continue
+            val = feat[attr_name]
+            if not is_number(val):
+                continue
+            values.append(val)
+        if len(values) == 0:
+            return None
+        return sum(values) / float(len(values))
+
+    def interpolate_from_mesh(self, pt_feat,  mesh_layer_id, group, dataset):
+        """Interpolate from mesh."""
+        mesh_layer = self.qgis_project.mapLayer(mesh_layer_id)
+        ptxy = pt_feat.geometry().asPoint()
+        dataset_val = mesh_layer.datasetValue(QgsMeshDatasetIndex(group, dataset), ptxy)
+        return dataset_val.scalar()
