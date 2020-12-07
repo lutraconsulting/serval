@@ -49,3 +49,6 @@ class UserCommunication:
         
     def bar_info(self, msg, dur=5):
         self.iface.messageBar().pushMessage(self.context, msg, duration=dur)
+
+    def clear_bar_messages(self):
+        self.iface.messageBar().clearWidgets()

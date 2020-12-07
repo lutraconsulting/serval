@@ -1,28 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-/***************************************************************************
- Serval,  A QGIS plugin
-
-
- Map tools for manipulating raster cell values
-
-    begin            : 2015-12-30
-    copyright        : (C) 2019 Radosław Pasiok for Lutra Consulting Ltd.
-    email            : info@lutraconsulting.co.uk
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-"""
-
 import os.path
-
+from qgis.core import QgsSpatialIndexKDBush
 
 dtypes = {
     0: {'name': 'UnknownDataType'}, 
@@ -60,3 +37,51 @@ def is_number(s):
 def icon_path(icon_filename):
     plugin_dir = os.path.dirname(__file__)
     return os.path.join(plugin_dir, 'icons', icon_filename)
+
+
+def get_logger():
+    import logging
+    from datetime import date
+    logger = logging.getLogger(f"Serval")
+    if not logger.hasHandlers():
+        logger.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter("{asctime}: {message} [{filename}]", datefmt="%Y-%m-%d %H:%M:%S", style="{")
+        logfilename = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", f"serval_{date.today()}.log")
+        fh = logging.FileHandler(logfilename)
+        fh.setFormatter(file_formatter)
+        logger.addHandler(fh)
+    return logger
+
+
+def low_pass_filtered(block, row, col, nodata_value, nodata_mode=False):
+    """
+    Return low-pass filtered (3x3) value of raster cell from the block at (row, col).
+    Cells at the edge of block are not filtered.
+    Cells having originally nodata are not modified either.
+    If nodata_mode is True, the nodata value will be return if any neighbor has nodata value. Otherwise, neighboring
+    nodata cells are ignored.
+    """
+    org_val = block.value(row, col)
+    if org_val == nodata_value:
+        return nodata_value
+    max_row = block.height() - 1
+    max_col = block.width() - 1
+    if row == 0 or row == max_row or col == 0 or col == max_col:
+        # the cell is at the edge of block - return the original value
+        return org_val
+    vals = []
+    for r in (row - 1, row, row + 1):
+        for c in (col - 1, col, col + 1):
+            val = block.value(r, c)
+            if val == nodata_value:
+                if nodata_mode:
+                    # return nodata if any neighbor has nodata value
+                    return nodata_value
+                else:
+                    continue
+            vals.append(val)
+    if len(vals) == 0:
+        new_val = nodata_value
+    else:
+        new_val = sum(vals) / len(vals)
+    return new_val
