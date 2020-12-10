@@ -22,17 +22,18 @@ class RasterHandler(QObject):
 
     raster_changed = pyqtSignal(object)
 
-    def __init__(self, layer, canvas_crs, uc=None, debug=False):
+    def __init__(self, layer, uc=None, debug=False):
         super(RasterHandler, self).__init__()
         self.layer = layer
-        self.canvas_crs = canvas_crs
         self.uc = uc
         self.logger = get_logger() if debug else None
         self.provider = layer.dataProvider()
         self.bands_nr = self.layer.bandCount()
         self.bands_range = range(1, self.bands_nr + 1)
         self.active_bands = [1]
-        self.require_transform = self.canvas_crs != self.layer.crs()
+        self.project = QgsProject.instance()
+        self.crs_transform = None if self.project.crs() == self.layer.crs() else \
+            QgsCoordinateTransform(self.project.crs(), self.layer.crs(), self.project)
         self.data_types = None
         self.nodata_values = None
         self.pixel_size_x = self.layer.rasterUnitsPerPixelX()
@@ -96,7 +97,7 @@ class RasterHandler(QObject):
                     # leave nodata undefined
                     self.nodata_values.append(None)
 
-    def select(self, geometries, all_touched_cells=True):
+    def select(self, geometries, all_touched_cells=True, transform=True):
         """
         For the geometries list, find selected cells.
         If all_touched_cells is True, all cells touching a geometry will be selected.
@@ -108,18 +109,15 @@ class RasterHandler(QObject):
         self.selected_cells = []
         self.spatial_index = QgsSpatialIndex()
         self.total_geometry = QgsGeometry()
-        if self.require_transform:
-            project = QgsProject.instance()
-            srs_transform = QgsCoordinateTransform(self.canvas_crs, self.layer.crs(), project)
         dxy = 0.001
         geoms = []
         for nr, geom in enumerate(geometries):
             if not geom.isGeosValid():
                 continue
             sgeom = QgsGeometry(geom)
-            if self.require_transform:
+            if self.crs_transform and transform:
                 try:
-                    res = sgeom.transform(srs_transform)
+                    res = sgeom.transform(self.crs_transform)
                     if not res == QgsGeometry.Success:
                         raise QgsCsException(repr(res))
                 except QgsCsException as err:
@@ -135,6 +133,8 @@ class RasterHandler(QObject):
             self.spatial_index.addFeature(nr, sgeom.boundingBox())
             geoms.append(sgeom)
         self.total_geometry = QgsGeometry.unaryUnion(geoms)
+        if self.logger:
+            self.logger.debug(f"Total selecting geometry bbox: {self.total_geometry.boundingBox()}")
         self.block_row_min, self.block_row_max, self.block_col_min, self.block_col_max = \
             self.extent_to_cell_indices(self.total_geometry.boundingBox())
 
@@ -161,9 +161,9 @@ class RasterHandler(QObject):
 
     def create_cell_pts_layer(self):
         """For current block extent, create memory point layer with a feature in each selected cell."""
-        lyr_crs = "crs=EPSG:27700"
+        crs_str = self.layer.crs().toProj()
         fields_def = "field=x:double&field=y:double&field=row:int&field=col:int"
-        self.cell_pts_layer = QgsVectorLayer(f"Point?{lyr_crs}&{fields_def}", "x", "memory")
+        self.cell_pts_layer = QgsVectorLayer(f"Point?crs={crs_str}&{fields_def}", "x", "memory")
         fields = self.cell_pts_layer.dataProvider().fields()
         feats = []
         for row_col, xy in self.cell_centers.items():
@@ -234,7 +234,11 @@ class RasterHandler(QObject):
                 else:
                     # set the expression value
                     feat_id = self.selected_cells_feats[(abs_row, abs_col)]
-                    new_val = None if math.isnan(cell_values[feat_id]) else cell_values[feat_id]
+                    if cell_values[feat_id] is not None:
+                        new_val = None if math.isnan(cell_values[feat_id]) or \
+                                      cell_values[feat_id] is None else cell_values[feat_id]
+                    else:
+                        new_val = None
                 new_val = old_block.value(row, col) if new_val is None else new_val
                 set_res = block.setValue(row, col, new_val)
                 if self.logger:
