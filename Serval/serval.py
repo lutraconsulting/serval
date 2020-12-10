@@ -17,6 +17,7 @@
  ***************************************************************************/
 """
 
+import math
 import os.path
 from datetime import datetime, timedelta
 
@@ -63,7 +64,7 @@ from .raster_changes import RasterChanges
 from .utils import is_number, icon_path, dtypes, get_logger
 from .user_communication import UserCommunication
 
-DEBUG = False
+DEBUG = True
 
 
 class Serval(object):
@@ -89,7 +90,8 @@ class Serval(object):
         self.last_point = QgsPointXY(0, 0)
         self.rbounds = None
         self.changes = dict()  # dict with rasters changes {raster_id: RasterChanges instance}
-        self.qgis_project = QgsProject.instance()
+        self.project = QgsProject.instance()
+        self.crs_transform = None
         self.all_touched = None
         self.selection_mode = None
         self.spatial_index_time = dict()  # {layer_id: creation time}
@@ -122,7 +124,7 @@ class Serval(object):
         self.map_tool_btn = dict()  # {map tool: button activating the tool}
 
         self.iface.currentLayerChanged.connect(self.set_active_raster)
-        self.qgis_project.layersAdded.connect(self.set_active_raster)
+        self.project.layersAdded.connect(self.set_active_raster)
         self.canvas.mapToolSet.connect(self.check_active_tool)
 
         self.register_exp_functions()
@@ -225,12 +227,6 @@ class Serval(object):
             add_to_toolbar=self.toolbar,
             checkable=False, )
 
-        self.set_nodata_btn = self.add_action(
-            'set_nodata.svg',
-            text="Edit Raster NoData Values",
-            callback=self.set_nodata,
-            add_to_toolbar=self.toolbar, )
-
         self.undo_btn = self.add_action(
             'undo.svg',
             text="Undo",
@@ -241,6 +237,12 @@ class Serval(object):
             'redo.svg',
             text="Redo",
             callback=self.redo,
+            add_to_toolbar=self.toolbar, )
+
+        self.set_nodata_btn = self.add_action(
+            'set_nodata.svg',
+            text="Edit Raster NoData Values",
+            callback=self.set_nodata,
             add_to_toolbar=self.toolbar, )
 
         self.settings_btn = self.add_action(
@@ -472,15 +474,17 @@ class Serval(object):
 
     def apply_values_single_cell(self, new_vals):
         """Create single cell selection and apply the new values."""
-        cpt = self.last_point
-        col, row = self.handler.point_to_index([cpt.x(), cpt.y()])
+        cp = self.last_point
+        if self.logger:
+            self.logger.debug(f"Changing single cell for pt {cp}")
+        col, row = self.handler.point_to_index([cp.x(), cp.y()])
         px, py = self.handler.index_to_point(row, col, upper_left=False)
         d = 0.001
         bbox = QgsRectangle(px - d, py - d, px + d, py + d)
         if self.logger:
             self.logger.debug(f"Changing single cell in {bbox}")
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        self.handler.select([QgsGeometry.fromRect(bbox)], all_touched_cells=False)
+        self.handler.select([QgsGeometry.fromRect(bbox)], all_touched_cells=False, transform=False)
         self.handler.write_block(new_vals)
         QApplication.restoreOverrideCursor()
         self.raster.triggerRepaint()
@@ -534,7 +538,7 @@ class Serval(object):
             feat.setGeometry(geom)
             features.append(feat)
         mlayer.dataProvider().addFeatures(features)
-        self.qgis_project.addMapLayer(mlayer)
+        self.project.addMapLayer(mlayer)
 
     def toggle_all_touched(self):
         """Toggle selection mode."""
@@ -545,34 +549,44 @@ class Serval(object):
         if self.raster is None:
             self.uc.bar_warn("Choose a raster to work with...", dur=3)
             return
-        canvas_srs = self.iface.mapCanvas().mapSettings().destinationCrs()
+
+        if self.logger:
+            self.logger.debug(f"Clicked point in canvas CRS: {point if point else self.last_point}")
+
         if point is None:
-            pos = self.last_point
-        elif not canvas_srs == self.raster.crs():
-            project = QgsProject.instance()
-            srs_transform = QgsCoordinateTransform(canvas_srs, self.raster.crs(), project)
-            try:
-                pos = srs_transform.transform(point)
-            except QgsCsException as err:
-                self.uc.show_warn(
-                    "Point coordinates transformation failed! Check the raster projection:\n\n{}".format(repr(err)))
-                return
+            ptxy_in_src_crs = self.last_point
         else:
-            pos = QgsPointXY(point.x(), point.y())
-        self.last_point = pos
-        ident_vals = self.handler.provider.identify(pos, QgsRaster.IdentifyFormatValue).results()
+            if self.crs_transform:
+                if self.logger:
+                    self.logger.debug(f"Transforming clicked point {point}")
+                try:
+                    ptxy_in_src_crs = self.crs_transform.transform(point)
+                except QgsCsException as err:
+                    self.uc.show_warn(
+                        "Point coordinates transformation failed! Check the raster projection:\n\n{}".format(repr(err)))
+                    return
+            else:
+                ptxy_in_src_crs = QgsPointXY(point.x(), point.y())
+
+        if self.logger:
+            self.logger.debug(f"Clicked point in raster CRS: {ptxy_in_src_crs}")
+        self.last_point = ptxy_in_src_crs
+
+        ident_vals = self.handler.provider.identify(ptxy_in_src_crs, QgsRaster.IdentifyFormatValue).results()
         cur_vals = list(ident_vals.values())
 
         # check if the point is within active raster extent
-        if not self.rbounds[0] <= pos.x() <= self.rbounds[2]:
+        if not self.rbounds[0] <= ptxy_in_src_crs.x() <= self.rbounds[2]:
             self.uc.bar_info("Out of x bounds", dur=3)
             return
-        if not self.rbounds[1] <= pos.y() <= self.rbounds[3]:
+        if not self.rbounds[1] <= ptxy_in_src_crs.y() <= self.rbounds[3]:
             self.uc.bar_info("Out of y bounds", dur=3)
             return
 
         if self.mode == 'draw':
             new_vals = self.spin_boxes.get_values()
+            if self.logger:
+                self.logger.debug(f"Applying const value {new_vals}")
             self.apply_values_single_cell(new_vals)
         else:
             self.spin_boxes.set_values(cur_vals)
@@ -690,11 +704,13 @@ class Serval(object):
     def set_active_raster(self):
         """Active layer has changed - check if it is a raster layer and prepare it for the plugin"""
         old_spin_boxes_values = self.spin_boxes.get_values()
+        self.crs_transform = None
         layer = self.iface.activeLayer()
         if self.check_layer(layer):
             self.raster = layer
-            canvas_srs = self.iface.mapCanvas().mapSettings().destinationCrs()
-            self.handler = RasterHandler(self.raster, canvas_srs, self.uc, self.debug)
+            self.crs_transform = None if self.project.crs() == self.raster.crs() else \
+                QgsCoordinateTransform(self.project.crs(), self.raster.crs(), self.project)
+            self.handler = RasterHandler(self.raster, self.uc, self.debug)
             supported, unsupported_type = self.handler.write_supported()
             if supported:
                 self.enable_toolbar_actions()
@@ -704,6 +720,7 @@ class Serval(object):
                 if self.handler.bands_nr == len(old_spin_boxes_values):
                     self.spin_boxes.set_values(old_spin_boxes_values)
                 self.bands_cbo.setEnabled(self.handler.bands_nr > 1)
+                self.color_btn.setEnabled(len(self.handler.active_bands) > 1)
                 self.rbounds = self.raster.extent().toRectF().getCoords()
                 self.handler.raster_changed.connect(self.add_to_undo)
                 if self.raster.id() not in self.changes:
@@ -792,7 +809,7 @@ class Serval(object):
         Find all features intersecting current feature (cell center, or raster cell polygon) and calculate average
         value of their attr_name attribute.
         """
-        vlayer = self.qgis_project.mapLayer(vlayer_id)
+        vlayer = self.project.mapLayer(vlayer_id)
         self.recreate_spatial_index(vlayer)
         ptxy = pt_feat.geometry().asPoint()
         pt_x, pt_y = ptxy.x(), ptxy.y()
@@ -818,9 +835,19 @@ class Serval(object):
             return None
         return sum(values) / float(len(values))
 
-    def interpolate_from_mesh(self, pt_feat,  mesh_layer_id, group, dataset):
+    def interpolate_from_mesh(self, pt_feat, mesh_layer_id, group, dataset, above_existing):
         """Interpolate from mesh."""
-        mesh_layer = self.qgis_project.mapLayer(mesh_layer_id)
+        mesh_layer = self.project.mapLayer(mesh_layer_id)
         ptxy = pt_feat.geometry().asPoint()
         dataset_val = mesh_layer.datasetValue(QgsMeshDatasetIndex(group, dataset), ptxy)
-        return dataset_val.scalar()
+        val = dataset_val.scalar()
+        if math.isnan(val):
+            return val
+        if above_existing:
+            ident_vals = self.handler.provider.identify(ptxy, QgsRaster.IdentifyFormatValue).results()
+            org_val = list(ident_vals.values())[0]
+            if org_val == self.handler.nodata_values[0]:
+                return val
+            return max(org_val, val)
+        else:
+            return val
