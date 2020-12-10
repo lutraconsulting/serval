@@ -6,7 +6,7 @@ use Raster Calculator for this.
 Users can select some portions of a raster and apply one of the following modifications to selected cells:
 * set a constant value, including NoData,
 * apply a QGIS expression value,
-* or 3x3 low-pass filter,
+* apply 3x3 low-pass filter,
 * undo / redo.
 
 Raster cell selection tools include:
