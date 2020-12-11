@@ -785,7 +785,7 @@ class Serval(object):
 
     def get_nearest_feature(self, pt_feat, vlayer_id):
         """Given the point feature, return nearest feature from vlayer."""
-        vlayer = self.qgis_project.mapLayer(vlayer_id)
+        vlayer = self.project.mapLayer(vlayer_id)
         self.recreate_spatial_index(vlayer)
         ptxy = pt_feat.geometry().asPoint()
         near_fid = self.spatial_index.nearestNeighbor(ptxy)[0]
