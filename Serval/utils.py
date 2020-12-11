@@ -1,5 +1,4 @@
-import os.path
-from qgis.core import QgsSpatialIndexKDBush
+import os
 
 dtypes = {
     0: {'name': 'UnknownDataType'}, 
@@ -46,7 +45,12 @@ def get_logger():
     if not logger.hasHandlers():
         logger.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter("{asctime}: {message} [{filename}]", datefmt="%Y-%m-%d %H:%M:%S", style="{")
-        logfilename = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", f"serval_{date.today()}.log")
+        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        try:
+            os.mkdir(log_dir)
+        except FileExistsError:
+            pass
+        logfilename = os.path.join(log_dir, f"serval_{date.today()}.log")
         fh = logging.FileHandler(logfilename)
         fh.setFormatter(file_formatter)
         logger.addHandler(fh)

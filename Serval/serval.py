@@ -64,7 +64,7 @@ from .raster_changes import RasterChanges
 from .utils import is_number, icon_path, dtypes, get_logger
 from .user_communication import UserCommunication
 
-DEBUG = True
+DEBUG = False
 
 
 class Serval(object):
