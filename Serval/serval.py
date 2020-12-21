@@ -774,7 +774,7 @@ class Serval(object):
 
     @staticmethod
     def show_website():
-        QDesktopServices.openUrl(QUrl('https://github.com/erpas/serval/wiki'))
+        QDesktopServices.openUrl(QUrl("https://github.com/lutraconsulting/serval/blob/master/Serval/docs/user_manual.md"))
 
     def recreate_spatial_index(self, layer):
         """Check if spatial index exists for the layer and if it is relatively old and eventually recreate it."""

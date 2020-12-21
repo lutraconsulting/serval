@@ -6,9 +6,9 @@ description=Raster editing tools
 version=3.10.1
 author=Radoslaw Pasiok for Lutra Consulting Ltd.
 email=radek.pasiok@lutraconsulting.co.uk
-about=Raster editing tools - select and apply a modification to a chosen part of a raster. Features setting a constant value (also NoData), an expression (probing other rasters and interpolation on vector and mesh layers) and applying 3x3 low-pass filter. Multiband rasters supported.
-tracker=http://github.com/erpas/serval/issues
-repository=http://github.com/erpas/serval
+about=Raster editing tools - select and apply a modification to a chosen part of a raster. Features setting a constant value (also NoData), an expression (probing other rasters and interpolation on vector and mesh layers) and applying 3x3 low-pass filter. Multiband rasters are fully supported.
+tracker=https://github.com/lutraconsulting/serval/issues
+repository=https://github.com/lutraconsulting/serval
 
 # End of mandatory metadata
 # Recommended items:
@@ -38,7 +38,7 @@ changelog=
 # Tags are comma separated with spaces allowed
 tags=raster, band, multiband, grid, pixel, value, cell, draw, nodata, select, selection, filter, expression
 
-homepage=https://github.com/erpas/serval/wiki
+homepage=https://github.com/lutraconsulting/serval/blob/master/Serval/docs/user_manual.md
 category=Raster
 icon=icons/serval_icon.svg
 # experimental flag

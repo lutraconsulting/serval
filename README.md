@@ -18,7 +18,7 @@ Multi-band rasters are fully supported - users can modify each band separately, 
 
 Probing raster tool and drawing tool (changing single cell value) are also available.
 
-For more details, see [User Manual](./Serval/docs/user_manual.md). The [wiki page](https://github.com/erpas/serval/wiki) is now outdated. To be updated soon...
+For more details, see [User Manual](./Serval/docs/user_manual.md). The [wiki page](https://github.com/lutraconsulting/serval/wiki) is now outdated. To be updated soon...
 
 ## License
 
