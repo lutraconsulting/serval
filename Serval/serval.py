@@ -102,6 +102,7 @@ class Serval(object):
 
         self.menu = u'Serval'
         self.actions = []
+        self.actions_always_on = []
         self.toolbar = self.iface.addToolBar(u'Serval Main Toolbar')
         self.toolbar.setObjectName(u'Serval Main Toolbar')
         self.toolbar.setToolTip(u'Serval Main Toolbar')
@@ -160,11 +161,12 @@ class Serval(object):
         self.uc.show_info("Some new settings may require QGIS restart.")
 
     def initGui(self):
-        dummy = self.add_action(
+        _ = self.add_action(
             'serval_icon.svg',
             text=u'Show Serval Toolbars',
             add_to_menu=True,
-            callback=self.show_toolbar, )
+            callback=self.show_toolbar,
+            always_on=True, )
 
         self.probe_btn = self.add_action(
             'probe.svg',
@@ -249,14 +251,16 @@ class Serval(object):
             'edit_settings.svg',
             text="Serval Settings",
             callback=self.edit_settings,
-            add_to_toolbar=self.toolbar, )
+            add_to_toolbar=self.toolbar,
+            always_on=True, )
 
         self.show_help = self.add_action(
             'help.svg',
             text="Help",
             add_to_menu=True,
             callback=self.show_website,
-            add_to_toolbar=self.toolbar, )
+            add_to_toolbar=self.toolbar,
+            always_on=True, )
 
         # Selection Toolbar
 
@@ -328,7 +332,7 @@ class Serval(object):
         self.check_undo_redo_btns()
 
     def add_action(self, icon_name, callback=None, text="", enabled_flag=True, add_to_menu=False, add_to_toolbar=None,
-                   status_tip=None, whats_this=None, checkable=False, checked=False):
+                   status_tip=None, whats_this=None, checkable=False, checked=False, always_on=False):
             
         icon = QIcon(icon_path(icon_name))
         action = QAction(icon, text, self.iface.mainWindow())
@@ -347,6 +351,8 @@ class Serval(object):
             self.iface.addPluginToMenu(self.menu, action)
 
         self.actions.append(action)
+        if always_on:
+            self.actions_always_on.append(action)
         return action
 
     def unload(self):
@@ -664,10 +670,10 @@ class Serval(object):
         """Enable / disable all toolbar actions but Help (for vectors and unsupported rasters)"""
         for widget in self.actions + [self.width_unit_cbo, self.line_width_sbox]:
             widget.setEnabled(enable)
+            if widget in self.actions_always_on:
+                widget.setEnabled(True)
         self.spin_boxes.enable(enable)
-        self.settings_btn.setEnabled(True)
-        self.show_help.setEnabled(True)
-    
+
     @staticmethod
     def check_layer(layer):
         """Check if we can work with the raster"""
