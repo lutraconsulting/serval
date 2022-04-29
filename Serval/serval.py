@@ -43,7 +43,6 @@ from qgis.core import (
     QgsPointXY,
     QgsProject,
     QgsRaster,
-    QgsRasterDataProvider,
     QgsRectangle,
     QgsSpatialIndex,
     QgsVectorLayer,
@@ -61,7 +60,7 @@ from .serval_exp_functions import (
 from .band_spin_boxes import BandBoxes
 from .layer_select_dlg import LayerSelectDialog
 from .raster_changes import RasterChanges
-from .utils import is_number, icon_path, dtypes, get_logger
+from .utils import is_number, icon_path, dtypes, get_logger, check_gdal_driver_create_option
 from .user_communication import UserCommunication
 
 DEBUG = False
@@ -166,6 +165,13 @@ class Serval(object):
             text=u'Show Serval Toolbars',
             add_to_menu=True,
             callback=self.show_toolbar,
+            always_on=True, )
+
+        _ = self.add_action(
+            'serval_icon.svg',
+            text=u'Hide Serval Toolbars',
+            add_to_menu=True,
+            callback=self.hide_toolbar,
             always_on=True, )
 
         self.probe_btn = self.add_action(
@@ -373,6 +379,11 @@ class Serval(object):
         if self.toolbar:
             self.toolbar.show()
             self.sel_toolbar.show()
+
+    def hide_toolbar(self):
+        if self.toolbar:
+            self.toolbar.hide()
+            self.sel_toolbar.hide()
 
     @staticmethod
     def register_exp_functions():
@@ -677,15 +688,16 @@ class Serval(object):
     @staticmethod
     def check_layer(layer):
         """Check if we can work with the raster"""
-        if layer is not None and layer.type() > 1:
+        if layer is None:
             return False
-        if layer is not None and all([
+        if layer.type() != QgsMapLayerType.RasterLayer:
+            return False
+        if all([
             layer.isValid(),
-            layer.type() != QgsMapLayerType.MeshLayer,
-            layer.type() == QgsMapLayerType.RasterLayer,
-            (layer.dataProvider().capabilities() & QgsRasterDataProvider.Create),
-            layer.crs() is not None]
-        ):
+            layer.crs() is not None,
+            check_gdal_driver_create_option(layer),                 # GDAL driver has CREATE option
+            os.path.isfile(layer.dataProvider().dataSourceUri()),   # is it a local file?
+        ]):
             return True
         else:
             return False

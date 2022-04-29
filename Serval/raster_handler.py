@@ -161,9 +161,9 @@ class RasterHandler(QObject):
 
     def create_cell_pts_layer(self):
         """For current block extent, create memory point layer with a feature in each selected cell."""
-        crs_str = self.layer.crs().toProj()
-        fields_def = "field=x:double&field=y:double&field=row:int&field=col:int"
-        self.cell_pts_layer = QgsVectorLayer(f"Point?crs={crs_str}&{fields_def}", "x", "memory")
+        crs_str = self.layer.crs().authid().lower()
+        fields_def = "field=row:int&field=col:int"
+        self.cell_pts_layer = QgsVectorLayer(f"Point?crs={crs_str}&{fields_def}", "Temp raster cell points", "memory")
         fields = self.cell_pts_layer.dataProvider().fields()
         feats = []
         for row_col, xy in self.cell_centers.items():
