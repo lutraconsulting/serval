@@ -1,4 +1,6 @@
 import os
+from osgeo import gdal
+import tempfile
 
 dtypes = {
     0: {'name': 'UnknownDataType'}, 
@@ -89,3 +91,15 @@ def low_pass_filtered(block, row, col, nodata_value, nodata_mode=False):
     else:
         new_val = sum(vals) / len(vals)
     return new_val
+
+
+def check_gdal_driver_create_option(layer):
+    """Check if GDAL can create dataset using the layer's GDAL driver - if yes, Serval can work with the raster."""
+    dataset = gdal.Open(layer.dataProvider().dataSourceUri(), gdal.GA_ReadOnly)
+    band = dataset.GetRasterBand(1)
+    if band is None:
+        return False
+    temp_dir = tempfile.mkdtemp()
+    test_path = os.path.join(temp_dir, "test")
+    test_dataset = dataset.GetDriver().Create(test_path, 1, 1, band.DataType)
+    return test_dataset is not None
