@@ -692,6 +692,8 @@ class Serval(object):
             return False
         if layer.type() != QgsMapLayerType.RasterLayer:
             return False
+        if layer.providerType() != 'gdal':
+            return False
         if all([
             layer.isValid(),
             layer.crs() is not None,
