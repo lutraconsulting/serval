@@ -104,5 +104,5 @@ def check_gdal_driver_create_option(layer):
         test_path = os.path.join(temp_dir, "test")
         test_dataset = dataset.GetDriver().Create(test_path, 1, 1, band.DataType)
         return test_dataset is not None
-    except RuntimeError:
+    except (AttributeError, RuntimeError):
         return False

@@ -105,6 +105,9 @@ class RasterHandler(QObject):
         """
         if self.logger:
             self.logger.debug(f"Selecting cells for geometries: {[g.asWkt() for g in geometries]}")
+        if not geometries:
+            self.uc.bar_warn("Select some raster cells!")
+            return
         self.selecting_geoms = dict()
         self.selected_cells = []
         self.spatial_index = QgsSpatialIndex()

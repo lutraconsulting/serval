@@ -39,7 +39,7 @@ class UserCommunication:
         QMessageBox.warning(self.iface.mainWindow(), self.context, msg)
         
     def log_info(self, msg):
-        QgsMessageLog.logMessage(msg, self.context, QgsMessageLog.INFO)
+        QgsMessageLog.logMessage(msg, self.context, Qgis.Info)
         
     def bar_error(self, msg):
         self.iface.messageBar().pushMessage(self.context, msg, level=Qgis.Critical)
