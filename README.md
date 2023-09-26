@@ -20,6 +20,8 @@ Probing raster tool and drawing tool (changing single cell value) are also avail
 
 For more details, see [User Manual](./Serval/docs/user_manual.md). The [wiki page](https://github.com/lutraconsulting/serval/wiki) is now outdated. To be updated soon...
 
+For editing thematic or categorical rasters, you might consider [ThRasE](https://smbyc.github.io/ThRasE).
+
 ## License
 
 Serval is a free/libre software and is licensed under the [GNU General Public License](./Serval/license.md).
