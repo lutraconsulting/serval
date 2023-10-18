@@ -75,7 +75,7 @@ class RasterHandler(QObject):
         msg = ""
         supported = True
         for nr in self.bands_range:
-            if self.provider.dataType(nr) == 0 or self.provider.dataType(nr) > 7:
+            if self.provider.dataType(nr) in (0, 8, 9, 10, 11, 12, 13):
                 msg = f"{dtypes[self.provider.dataType(nr)]['name']} (band {nr})"
                 supported = False
         return supported, msg

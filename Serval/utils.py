@@ -23,7 +23,9 @@ dtypes = {
     10: {'name': 'CFloat32'}, 
     11: {'name': 'CFloat64'}, 
     12: {'name': 'ARGB32'}, 
-    13: {'name': 'ARGB32_Premultiplied'}
+    13: {'name': 'ARGB32_Premultiplied'},
+    14: {'name': 'Int8', 'atype': 'i',
+         'min': -32768, 'max': 32767, 'dig': 0},
 }
 
 
