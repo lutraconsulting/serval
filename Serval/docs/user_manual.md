@@ -94,7 +94,7 @@ Please note that for RGB bands active, the expression builder is not available a
 
 ### Pencil tool
 
-![Pencil tool](../icons/draw.svg) activates pencil, or drawing tool, used for changin single cell values.
+![Pencil tool](../icons/draw.svg) activates pencil, or drawing tool, used for changing single cell values.
 
 ### Apply constant value
 
